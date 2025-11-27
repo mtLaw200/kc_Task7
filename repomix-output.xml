@@ -288,7 +288,7 @@ export function convertToTens(num) {
 </file>
 
 <file path="js/check-out.js">
-import { Products, getData } from "../data/product.js";
+import { Products, getProducts } from "../data/product.js";
 import { cart, clearCartFromStorage } from "../data/cart.js";
 import { getFooterHTML } from "../utils/footer.js";
 
@@ -329,7 +329,7 @@ if (alertTrigger) {
   });
 }
 
-await getData();
+await getProducts();
 renderOrderSummary();
 
 function renderOrderSummary() {
@@ -1481,9 +1481,9 @@ import {
   removeFromCart,
 } from "../data/cart.js";
 import { getFooterHTML } from "../utils/footer.js";
-import { getData, Products } from "../data/product.js";
+import { getProducts, Products } from "../data/product.js";
 const cartContainer = document.querySelector(".js-cart-container");
-await getData();
+await getProducts();
 
 async function loadPage() {
   document.querySelector(".js-footer-container").innerHTML = getFooterHTML();
@@ -1659,7 +1659,7 @@ function getProductId(productId) {
 export let Products = [];
 const url = "https://fakestoreapi.com/products";
 
-export async function getData() {
+export async function getProducts() {
   try {
     const res = await fetch(url);
     if (res.status >= 400) {
@@ -1677,7 +1677,7 @@ export async function getData() {
 </file>
 
 <file path="js/shop-page.js">
-import { Products, getData } from "../data/product.js";
+import { Products, getProducts } from "../data/product.js";
 import { addToCart, updateCart } from "../data/cart.js";
 import { productHTML } from "../utils/productHtml.js";
 import { getFooterHTML } from "../utils/footer.js";
@@ -1688,7 +1688,7 @@ async function loadPage() {
 
   updateCart(cartIcons, totalCart);
   try {
-    await getData();
+    await getProducts();
     document.querySelector(".js-product-container").innerHTML =
       productHTML(Products);
 
@@ -1787,7 +1787,7 @@ export function getTotalCart() {
 </file>
 
 <file path="main.js">
-import { Products, getData } from "./data/product.js";
+import { Products, getProducts } from "./data/product.js";
 import { addToCart, updateCart } from "./data/cart.js";
 import { productHTML } from "./utils/productHtml.js";
 import { getFooterHTML } from "./utils/footer.js";
@@ -1799,7 +1799,7 @@ async function loadPage() {
   const newArray = [];
 
   try {
-    await getData();
+    await getProducts();
 
     for (let i = 0; i <= 4; i++) {
       newArray.push(Products[i]);

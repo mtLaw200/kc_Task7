@@ -1,27 +1,27 @@
-import { Products, getData } from "./data/product.js";
-import { addToCart, updateCart } from "./data/cart.js";
-import { productHTML } from "./utils/productHtml.js";
-import { getFooterHTML } from "./utils/footer.js";
+import { getProducts } from './data/product.js';
+import { addToCart, updateCart } from './data/cart.js';
+import { productHTML } from './utils/productHtml.js';
+import { getFooterHTML } from './utils/footer.js';
 
 async function loadPage() {
-  const totalCart = document.querySelectorAll(".nav--cart-counter");
-  const cartIcons = document.querySelectorAll(".cart-icon");
+  const totalCart = document.querySelectorAll('.nav--cart-counter');
+  const cartIcons = document.querySelectorAll('.cart-icon');
   updateCart(cartIcons, totalCart);
   const newArray = [];
 
   try {
-    await getData();
+    let Products = await getProducts();
 
     for (let i = 0; i <= 4; i++) {
       newArray.push(Products[i]);
     }
 
-    document.querySelector(".js-product-container").innerHTML =
+    document.querySelector('.js-product-container').innerHTML =
       productHTML(newArray);
 
-    const addToCartButtons = document.querySelectorAll(".js-add-to-cart");
+    const addToCartButtons = document.querySelectorAll('.js-add-to-cart');
     addToCartButtons.forEach((button) => {
-      button.addEventListener("click", () => {
+      button.addEventListener('click', () => {
         const { productId } = button.dataset;
         const statusMessage = document.querySelector(
           `.js-added-status-${productId}`
@@ -29,9 +29,9 @@ async function loadPage() {
         addToCart(productId);
         updateCart(cartIcons, totalCart);
         setTimeout(() => {
-          statusMessage.classList.toggle("d-none");
+          statusMessage.classList.toggle('d-none');
         }, 1000);
-        statusMessage.classList.toggle("d-none");
+        statusMessage.classList.toggle('d-none');
       });
     });
   } catch (error) {
@@ -41,4 +41,4 @@ async function loadPage() {
 
 loadPage();
 
-document.querySelector(".js-footer-container").innerHTML = getFooterHTML();
+document.querySelector('.js-footer-container').innerHTML = getFooterHTML();

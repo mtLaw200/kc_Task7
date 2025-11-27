@@ -3,30 +3,31 @@ import {
   saveCartToStorage,
   getTotalCart,
   removeFromCart,
-} from "../data/cart.js";
-import { getFooterHTML } from "../utils/footer.js";
-import { getData, Products } from "../data/product.js";
-const cartContainer = document.querySelector(".js-cart-container");
-await getData();
+} from '../data/cart.js';
+import { getFooterHTML } from '../utils/footer.js';
+import { getProducts } from '../data/product.js';
+const cartContainer = document.querySelector('.js-cart-container');
+
+let Products = getProducts();
 
 async function loadPage() {
-  document.querySelector(".js-footer-container").innerHTML = getFooterHTML();
-  const icons = document.querySelectorAll(".nav--cart-icon");
+  document.querySelector('.js-footer-container').innerHTML = getFooterHTML();
+  const icons = document.querySelectorAll('.nav--cart-icon');
   icons.forEach((i) => {
-    if (!i.classList.contains("d-none")) {
-      i.classList.add("d-none");
+    if (!i.classList.contains('d-none')) {
+      i.classList.add('d-none');
     }
   });
 
   renderOrderSummary();
   renderPaymentSummary();
 
-  document.querySelectorAll(".js-icon-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
+  document.querySelectorAll('.js-icon-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
       const { productId } = btn.dataset;
       cart.forEach((cartItem) => {
         if (cartItem.productId === productId) {
-          if (btn.classList.contains("js-plus")) {
+          if (btn.classList.contains('js-plus')) {
             cartItem.quantity += 1;
           } else {
             if (cartItem.quantity != 1) {
@@ -39,8 +40,8 @@ async function loadPage() {
       loadPage();
     });
   });
-  document.querySelectorAll(".js-delete-icon").forEach((icon) => {
-    icon.addEventListener("click", () => {
+  document.querySelectorAll('.js-delete-icon').forEach((icon) => {
+    icon.addEventListener('click', () => {
       const { productId } = icon.dataset;
       removeFromCart(productId);
       loadPage();
@@ -51,7 +52,7 @@ async function loadPage() {
 loadPage();
 
 function renderOrderSummary() {
-  let cartSummaryHTML = "";
+  let cartSummaryHTML = '';
   cart.forEach((cartItem) => {
     const productId = cartItem.productId;
 
@@ -79,9 +80,9 @@ function renderOrderSummary() {
                   <div
                     class="c-row d-flex justify-content-between align-items-center"
                   >
-                    <p class="fw-bolder fs-5">${new Intl.NumberFormat("en-NG", {
-                      style: "currency",
-                      currency: "NGN",
+                    <p class="fw-bolder fs-5">${new Intl.NumberFormat('en-NG', {
+                      style: 'currency',
+                      currency: 'NGN',
                     }).format(price)}</p>
                     <div
                       class="quantity-control d-flex bg-body-tertiary px-3 rounded-pill py-2  d-flex justify-content-between"
@@ -118,39 +119,39 @@ function renderPaymentSummary() {
     2
   );
 
-  document.querySelector(".js-cart-summary").innerHTML = `
+  document.querySelector('.js-cart-summary').innerHTML = `
   <div class="c-row d-flex justify-content-between mb-3">
                   <p>Subtotal (${getTotalCart(cart)})</p>
-                  <p class="fw-bold"><span>${new Intl.NumberFormat("en-NG", {
-                    style: "currency",
-                    currency: "NGN",
+                  <p class="fw-bold"><span>${new Intl.NumberFormat('en-NG', {
+                    style: 'currency',
+                    currency: 'NGN',
                   }).format(productTotal)}</span></p>
                 </div>
                 <div class="c-row d-flex justify-content-between mb-3">
                   <p>Discount (-10%)</p>
                   <p class="fw-bold text-danger">-<span>${new Intl.NumberFormat(
-                    "en-NG",
+                    'en-NG',
                     {
-                      style: "currency",
-                      currency: "NGN",
+                      style: 'currency',
+                      currency: 'NGN',
                     }
                   ).format(discountPercentage)}</span></p>
                 </div>
                 <div class="c-row d-flex justify-content-between mb-3">
                   <p>Delivery Fee</p>
-                  <p class="fw-bold"><span>${new Intl.NumberFormat("en-NG", {
-                    style: "currency",
-                    currency: "NGN",
+                  <p class="fw-bold"><span>${new Intl.NumberFormat('en-NG', {
+                    style: 'currency',
+                    currency: 'NGN',
                   }).format(deliveryFee)}</span></p>
                 </div>
                 <hr />
                 <div class="c-row d-flex justify-content-between mb-3">
                   <p>Total</p>
                   <p class="fw-bolder fs-5"><span>${new Intl.NumberFormat(
-                    "en-NG",
+                    'en-NG',
                     {
-                      style: "currency",
-                      currency: "NGN",
+                      style: 'currency',
+                      currency: 'NGN',
                     }
                   ).format(grandTotal)}</span></p>
                 </div>
@@ -170,7 +171,7 @@ function renderPaymentSummary() {
 function getProductId(productId) {
   let matchingProduct;
   Products.forEach((product) => {
-    if (product.id == productId) {
+    if (product.id === productId) {
       matchingProduct = product;
     }
   });

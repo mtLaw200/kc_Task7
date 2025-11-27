@@ -1,26 +1,26 @@
-import { Products, getData } from "../data/product.js";
-import { cart, clearCartFromStorage } from "../data/cart.js";
-import { getFooterHTML } from "../utils/footer.js";
+import { Products, getProducts } from '../data/product.js';
+import { cart, clearCartFromStorage } from '../data/cart.js';
+import { getFooterHTML } from '../utils/footer.js';
 
-const previewContainer = document.querySelector(".js-preview-container");
-document.querySelector(".js-footer-container").innerHTML = getFooterHTML();
-const alertPlaceholder = document.getElementById("liveAlertPlaceholder");
+const previewContainer = document.querySelector('.js-preview-container');
+document.querySelector('.js-footer-container').innerHTML = getFooterHTML();
+const alertPlaceholder = document.getElementById('liveAlertPlaceholder');
 
 const appendAlert = (message, type) => {
-  const wrapper = document.createElement("div");
+  const wrapper = document.createElement('div');
   wrapper.innerHTML = [
     `<div class="alert alert-${type} alert-dismissible" role="alert">`,
     `   <div>${message}</div>`,
     '   <button type="button" class="btn-close js-btn-close" data-bs-dismiss="alert" aria-label="Close"></button>',
-    "</div>",
-  ].join("");
+    '</div>',
+  ].join('');
 
   alertPlaceholder.append(wrapper);
 };
 
-const alertTrigger = document.getElementById("liveAlertBtn");
+const alertTrigger = document.getElementById('liveAlertBtn');
 if (alertTrigger) {
-  alertTrigger.addEventListener("click", () => {
+  alertTrigger.addEventListener('click', () => {
     appendAlert(
       `Order Placed Successfully! Thank you for shopping with
                         us! Your order has been placed successfully.
@@ -31,19 +31,19 @@ if (alertTrigger) {
                           We'll send you an email with your order confirmation
                           and shipping details soon.
                         </p>`,
-      "success"
+      'success'
     );
-    document.querySelector(".js-btn-close").addEventListener("click", () => {
+    document.querySelector('.js-btn-close').addEventListener('click', () => {
       location.reload();
     });
   });
 }
 
-await getData();
+let Products = getProducts();
 renderOrderSummary();
 
 function renderOrderSummary() {
-  let summaryHTML = "";
+  let summaryHTML = '';
   cart.forEach((cartItem) => {
     const productId = cartItem.productId;
     const matchingProduct = getProductId(productId);
@@ -74,10 +74,10 @@ function renderOrderSummary() {
                         class="c-row d-flex justify-content-between align-items-center"
                       >
                         <p class="fw-bolder fs-4">${new Intl.NumberFormat(
-                          "en-NG",
+                          'en-NG',
                           {
-                            style: "currency",
-                            currency: "NGN",
+                            style: 'currency',
+                            currency: 'NGN',
                           }
                         ).format(total)}</p>
                       </div>
@@ -87,7 +87,7 @@ function renderOrderSummary() {
   });
 
   previewContainer.innerHTML = summaryHTML;
-  document.querySelector(".js-place-order").addEventListener("click", (e) => {
+  document.querySelector('.js-place-order').addEventListener('click', (e) => {
     e.preventDefault();
     clearCartFromStorage();
     renderOrderSummary();
