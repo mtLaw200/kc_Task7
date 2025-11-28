@@ -1,7 +1,7 @@
 import { getProducts } from '../services/productService.js';
-import { addToCart, updateCart } from '../data/cart.js';
-import { productHTML } from '../utils/productHtml.js';
-import { getFooterHTML } from '../utils/footer.js';
+import { addToCart, updateCart } from '../services/cartService.js';
+import { renderFooter } from '../ui/footer.js';
+import { renderProductCard } from '../ui/productCard.js';
 
 async function loadPage() {
   const totalCart = document.querySelectorAll('.nav--cart-counter');
@@ -11,7 +11,7 @@ async function loadPage() {
   try {
     const Products = await getProducts();
     document.querySelector('.js-product-container').innerHTML =
-      productHTML(Products);
+      renderProductCard(Products);
 
     const addToCartButtons = document.querySelectorAll('.js-add-to-cart');
     addToCartButtons.forEach((button) => {
@@ -34,5 +34,6 @@ async function loadPage() {
   }
 }
 
-loadPage();
-document.querySelector('.js-footer-container').innerHTML = getFooterHTML();
+await loadPage();
+
+document.querySelector('.js-footer-container').innerHTML = renderFooter();
