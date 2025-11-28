@@ -1,6 +1,4 @@
-const url = 'https://fakestoreapi.com/products';
-
-export async function getProducts() {
+export async function httpGet(url) {
   try {
     const res = await fetch(url);
     if (res.status >= 400) {
@@ -8,10 +6,7 @@ export async function getProducts() {
     } else {
       return await res.json();
     }
-  } catch (er) {
+  } catch (error) {
     console.log('Unexpected error, Please try again Later.');
   }
 }
-
-
-// delete

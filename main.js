@@ -1,24 +1,22 @@
-import { getProducts } from './data/product.js';
-import { addToCart, updateCart } from './data/cart.js';
-import { productHTML } from './utils/productHtml.js';
-import { getFooterHTML } from './utils/footer.js';
+import { getProducts } from './services/productService.js';
+import { addToCart, updateCart } from './services/cartService.js';
+import { renderProductCard } from './ui/productCard.js';
+import { renderFooter } from './ui/footer.js';
 
 async function loadPage() {
   const totalCart = document.querySelectorAll('.nav--cart-counter');
   const cartIcons = document.querySelectorAll('.cart-icon');
   updateCart(cartIcons, totalCart);
-  const newArray = [];
 
   try {
-    let Products = await getProducts();
+    const Products = await getProducts();
+    const firstFourProducts = Products.slice(0, 4);
 
-    for (let i = 0; i <= 4; i++) {
-      newArray.push(Products[i]);
-    }
-
+    // display first 4 products
     document.querySelector('.js-product-container').innerHTML =
-      productHTML(newArray);
+      renderProductCard(firstFourProducts);
 
+    // add event listerner to all cart buutons
     const addToCartButtons = document.querySelectorAll('.js-add-to-cart');
     addToCartButtons.forEach((button) => {
       button.addEventListener('click', () => {
@@ -39,6 +37,6 @@ async function loadPage() {
   }
 }
 
-loadPage();
+await loadPage();
 
-document.querySelector('.js-footer-container').innerHTML = getFooterHTML();
+document.querySelector('.js-footer-container').innerHTML = renderFooter();

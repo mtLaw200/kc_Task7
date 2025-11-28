@@ -1,4 +1,4 @@
-import { getProducts } from '../data/product.js';
+import { getProducts } from '../services/productService.js';
 import { addToCart, updateCart } from '../data/cart.js';
 import { productHTML } from '../utils/productHtml.js';
 import { getFooterHTML } from '../utils/footer.js';
@@ -9,7 +9,7 @@ async function loadPage() {
 
   updateCart(cartIcons, totalCart);
   try {
-    let Products = await getProducts();
+    const Products = await getProducts();
     document.querySelector('.js-product-container').innerHTML =
       productHTML(Products);
 

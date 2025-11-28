@@ -1,7 +1,7 @@
-export function getFooterHTML() {
+export function renderFooter() {
   return `<div class="row g-4">
           <div class="col-12 col-lg-4">
-            <a href="" class="display-3 fw-bolder fs-1 footer--brand-name"
+            <a href="/" class="display-3 fw-bolder fs-1 footer--brand-name"
               >ShopNow.co</a
             >
             <p>
