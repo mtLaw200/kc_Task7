@@ -43,5 +43,5 @@ export function updateCart(icons, totalCount) {
 }
 export function loadCart() {
   const cartData = localStorage.getItem('shop-now-cart');
-  state.cart = cartData ? JSON.parse(cartData) : [];
+  return (state.cart = cartData ? JSON.parse(cartData) : []);
 }
