@@ -13,21 +13,20 @@ async function loadPage() {
     document.querySelector('.js-product-container').innerHTML =
       renderProductCard(Products);
 
-    const addToCartButtons = document.querySelectorAll('.js-add-to-cart');
-    addToCartButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const { productId } = button.dataset;
+    // add to cart functionality
+    document.addEventListener('click', (e) => {
+      if (e.target.matches('.js-add-to-cart')) {
+        const { productId } = e.target.dataset;
         const statusMessage = document.querySelector(
           `.js-added-status-${productId}`
         );
         addToCart(productId);
         updateCart(cartIcons, totalCart);
-
         setTimeout(() => {
           statusMessage.classList.toggle('d-none');
         }, 1000);
         statusMessage.classList.toggle('d-none');
-      });
+      }
     });
   } catch (error) {
     console.log(error);
