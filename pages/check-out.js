@@ -58,6 +58,7 @@ function renderOrderSummary() {
                       <img
                         src="${image}"
                         alt="${title} image"
+                        loading="lazy"
                         class="rounded-2 img-fit"
                       />
                     </div>

@@ -19,6 +19,7 @@ export function renderProductCard(p) {
                 <img
                 src="${image}"
                 class="img-fit"
+                loading="lazy"
                 alt="product-${title}"
               />
               </div>
@@ -32,6 +33,7 @@ export function renderProductCard(p) {
                     src="./assets/ratings/rating-${convertToTens(rate)}.png"
                     alt="rating-${rate}"
                     class="img-fit"
+                    loading="lazy"
                   />
                 </div>
                   <div class="product-count ms-2 small mt-1 fw-semibold">${count}</div>

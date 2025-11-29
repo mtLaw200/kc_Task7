@@ -1,6 +1,10 @@
 import { httpGet } from '../core/http.js';
 const API_URL = 'https://fakestoreapi.com/products';
 
+let cachedProducts = null;
+
 export async function getProducts() {
-  return await httpGet(API_URL);
+  if (cachedProducts) return cachedProducts;
+  cachedProducts = await httpGet(API_URL);
+  return cachedProducts;
 }
