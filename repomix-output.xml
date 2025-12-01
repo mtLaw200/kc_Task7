@@ -102,12 +102,13 @@ export const CONFIG = {
 </file>
 
 <file path="pages/check.js">
-// pages/checkout.js
+// pages/check.js
 import { productService } from '../services/productService.js';
 import { CartService } from '../services/cartService.js';
 import { renderFooter } from '../ui/footer.js';
 import { state } from '../core/state.js';
 import { formatCurrency } from '../utils/formatters.js';
+import { CONFIG } from '../core/constants.js';
 
 class CheckoutPage {
   constructor() {
@@ -127,11 +128,22 @@ class CheckoutPage {
   }
 
   renderOrderSummary() {
+    if (state.cart.length === 0) {
+      document.querySelector('.js-preview-container').innerHTML = `
+        <div class="col-12 text-center py-4">
+          <p class="text-muted">Your cart is empty</p>
+          <a href="./shop-page.html" class="btn btn-sm bg-black text-white rounded-pill">
+            Start Shopping
+          </a>
+        </div>
+      `;
+      return;
+    }
+
     const summaryHTML = state.cart
       .map((cartItem) => {
         const product = productService.getProductById(cartItem.productId);
         if (!product) return '';
-
         return this.renderOrderItem(product, cartItem);
       })
       .join('');
@@ -139,54 +151,64 @@ class CheckoutPage {
     document.querySelector('.js-preview-container').innerHTML = summaryHTML;
   }
 
-  // pages/check.js
   renderOrderItem(product, cartItem) {
     const total = (product.price * cartItem.quantity).toFixed(2);
 
     return `
-    <div class="col-12">
-      <div class="cart-item-container">
-        <div class="cart-item--image border bg-white p-2">
-          <img
-            src="${product.image}"
-            alt="${product.title}"
-            loading="lazy"
-            class="rounded-2 img-fit"
-          />
-        </div>
-        <div class="cart-item--details pe-3">
-          <div class="c-row d-flex justify-content-between align-items-center">
-            <p class="fw-bolder">${product.title}</p>
+      <div class="col-12">
+        <div class="cart-item-container">
+          <div class="cart-item--image border bg-white p-2">
+            <img
+              src="${product.image}"
+              alt="${product.title}"
+              loading="lazy"
+              class="rounded-2 img-fit"
+            />
           </div>
-          <div class="cart-item-qty">
-            <p class="lead">${cartItem.quantity}x</p>
-          </div>
-          <div class="c-row d-flex justify-content-between align-items-center">
-            <p class="fw-bolder fs-4">${formatCurrency(total)}</p>
+          <div class="cart-item--details pe-3">
+            <div class="c-row d-flex justify-content-between align-items-center">
+              <p class="fw-bolder">${product.title}</p>
+            </div>
+            <div class="cart-item-qty">
+              <p class="lead">${cartItem.quantity}x</p>
+            </div>
+            <div class="c-row d-flex justify-content-between align-items-center">
+              <p class="fw-bolder fs-4">${formatCurrency(total)}</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  `;
+    `;
   }
 
   attachEventListeners() {
-    document
-      .querySelector('.js-place-order')
-      ?.addEventListener('click', (e) => this.handlePlaceOrder(e));
+    const placeOrderBtn = document.querySelector('.js-place-order');
+    if (placeOrderBtn) {
+      placeOrderBtn.addEventListener('click', (e) => this.handlePlaceOrder(e));
+    }
   }
 
   handlePlaceOrder(e) {
     e.preventDefault();
 
+    if (state.cart.length === 0) {
+      this.showAlert('Your cart is empty!', 'warning');
+      return;
+    }
+
     if (!this.validateForm()) {
+      this.showAlert('Please fill in all required fields correctly.', 'danger');
       return;
     }
 
     const orderDetails = this.generateOrderDetails();
     this.showSuccessAlert(orderDetails);
     CartService.clearCart();
-    this.renderOrderSummary();
+
+    // Redirect after delay
+    setTimeout(() => {
+      window.location.href = './index.html';
+    }, 3000);
   }
 
   validateForm() {
@@ -200,18 +222,43 @@ class CheckoutPage {
       'zipCode',
       'state',
       'country',
+      'cardNum',
+      'cardExp',
+      'CVV',
     ];
+
     let isValid = true;
 
     requiredFields.forEach((fieldId) => {
       const field = document.getElementById(fieldId);
       if (!field || !field.value.trim()) {
         isValid = false;
-        field?.classList.add('is-invalid');
+        if (field) {
+          field.classList.add('is-invalid');
+        }
       } else {
-        field?.classList.remove('is-invalid');
+        if (field) {
+          field.classList.remove('is-invalid');
+        }
       }
     });
+
+    // Email validation
+    const emailField = document.getElementById('email');
+    if (emailField && emailField.value) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailField.value)) {
+        emailField.classList.add('is-invalid');
+        isValid = false;
+      }
+    }
+
+    // Terms checkbox validation
+    const checkbox = document.getElementById('checkbox');
+    if (checkbox && !checkbox.checked) {
+      isValid = false;
+      this.showAlert('Please agree to the terms and conditions.', 'warning');
+    }
 
     return isValid;
   }
@@ -226,10 +273,17 @@ class CheckoutPage {
   }
 
   calculateTotal() {
-    return state.cart.reduce((sum, item) => {
+    const { DELIVERY_FEE, DISCOUNT_RATE } = CONFIG;
+
+    let subtotal = state.cart.reduce((sum, item) => {
       const product = productService.getProductById(item.productId);
       return sum + (product?.price || 0) * item.quantity;
     }, 0);
+
+    const discount = subtotal * DISCOUNT_RATE;
+    const deliveryFee = subtotal > 0 ? DELIVERY_FEE : 0;
+
+    return (subtotal - discount + deliveryFee).toFixed(2);
   }
 
   showSuccessAlert(details) {
@@ -237,17 +291,23 @@ class CheckoutPage {
     const wrapper = document.createElement('div');
 
     wrapper.innerHTML = `
-      <div class="alert alert-success alert-dismissible" role="alert">
-        <div>
-          <h4>Order Placed Successfully!</h4>
-          <p>Thank you for shopping with us! Your order has been placed successfully.</p>
-          <h5>Order Details:</h5>
-          <p><strong>Order Number:</strong> ${details.orderNumber}</p>
-          <p><strong>Order Date:</strong> ${details.orderDate}</p>
-          <p><strong>Total Items:</strong> ${details.items}</p>
-          <p><strong>Total Amount:</strong> ${formatCurrency(details.total)}</p>
-          <p>We'll send you an email with your order confirmation and shipping details soon.</p>
-        </div>
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <h4 class="alert-heading">
+          <i class="fa-solid fa-circle-check me-2"></i>
+          Order Placed Successfully!
+        </h4>
+        <p>Thank you for shopping with us! Your order has been placed successfully.</p>
+        <hr>
+        <h5>Order Details:</h5>
+        <p class="mb-1"><strong>Order Number:</strong> ${
+          details.orderNumber
+        }</p>
+        <p class="mb-1"><strong>Order Date:</strong> ${details.orderDate}</p>
+        <p class="mb-1"><strong>Total Items:</strong> ${details.items}</p>
+        <p class="mb-3"><strong>Total Amount:</strong> ${formatCurrency(
+          details.total
+        )}</p>
+        <p class="mb-0">We'll send you an email with your order confirmation and shipping details soon.</p>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
     `;
@@ -255,13 +315,33 @@ class CheckoutPage {
     alertPlaceholder.innerHTML = '';
     alertPlaceholder.appendChild(wrapper);
 
-    // Reload after 3 seconds
+    // Scroll to alert
+    alertPlaceholder.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  showAlert(message, type = 'info') {
+    const alertPlaceholder = document.getElementById('liveAlertPlaceholder');
+    const wrapper = document.createElement('div');
+
+    wrapper.innerHTML = `
+      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    `;
+
+    alertPlaceholder.innerHTML = '';
+    alertPlaceholder.appendChild(wrapper);
+
+    // Auto-dismiss after 3 seconds
     setTimeout(() => {
-      window.location.reload();
+      wrapper.querySelector('.alert').classList.remove('show');
+      setTimeout(() => wrapper.remove(), 150);
     }, 3000);
   }
 }
 
+// Initialize checkout page
 new CheckoutPage();
 </file>
 
@@ -281,10 +361,12 @@ export function debounce(func, wait) {
 </file>
 
 <file path="utils/errorHandler.js">
+// utils/errorHandler.js
 export class AppError extends Error {
   constructor(message, type = 'general') {
     super(message);
     this.type = type;
+    this.name = 'AppError';
   }
 }
 
@@ -299,7 +381,51 @@ export function handleError(error, userMessage = 'Something went wrong') {
 }
 
 export function showNotification(message, type = 'info') {
-  // Implement toast notification system
+  const container =
+    document.getElementById('notification-container') ||
+    createNotificationContainer();
+
+  const notification = document.createElement('div');
+  notification.className = `alert alert-${getAlertType(
+    type
+  )} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+  notification.style.zIndex = '9999';
+  notification.style.minWidth = '300px';
+  notification.setAttribute('role', 'alert');
+
+  notification.innerHTML = `
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  `;
+
+  container.appendChild(notification);
+
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 150);
+  }, 5000);
+}
+
+function createNotificationContainer() {
+  const container = document.createElement('div');
+  container.id = 'notification-container';
+  container.style.position = 'fixed';
+  container.style.top = '0';
+  container.style.right = '0';
+  container.style.zIndex = '9999';
+  document.body.appendChild(container);
+  return container;
+}
+
+function getAlertType(type) {
+  const typeMap = {
+    error: 'danger',
+    success: 'success',
+    info: 'info',
+    warning: 'warning',
+  };
+  return typeMap[type] || 'info';
 }
 </file>
 
@@ -320,21 +446,25 @@ export function formatDate(date) {
 </file>
 
 <file path="core/http.js">
+// core/http.js
 export async function httpGet(url) {
   try {
     const res = await fetch(url);
-    if (res.status >= 400) {
-      throw res;
-    } else {
-      return await res.json();
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
     }
+    return await res.json();
   } catch (error) {
-    console.log('Unexpected error, Please try again Later.');
+    console.error('HTTP GET Error:', error);
+    throw error;
   }
 }
 </file>
 
 <file path="core/state.js">
+// core/state.js
+import { CONFIG } from './constants.js';
+
 class AppState {
   constructor() {
     this.products = [];
@@ -343,7 +473,7 @@ class AppState {
 
   loadCart() {
     try {
-      const saved = localStorage.getItem('shop-now-cart');
+      const saved = localStorage.getItem(CONFIG.STORAGE_KEY);
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
       console.error('Failed to load cart:', e);
@@ -353,7 +483,7 @@ class AppState {
 
   saveCart() {
     try {
-      localStorage.setItem('shop-now-cart', JSON.stringify(this.cart));
+      localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(this.cart));
     } catch (e) {
       console.error('Failed to save cart:', e);
     }
@@ -368,6 +498,7 @@ export const state = new AppState();
 </file>
 
 <file path="ui/footer.js">
+// ui/footer.js
 export function renderFooter() {
   return `<div class="row g-4">
           <div class="col-12 col-lg-4">
@@ -378,10 +509,10 @@ export function renderFooter() {
               Your one-stop shop for all your needs. Browse our diverse range of products and discover the convenience of shopping with us.
             </p>
             <div class="footer--social-links">
-              <a href="#"><i class="fa-brands fa-facebook-f"></i></a>
-              <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
-              <a href="#"><i class="fa-brands fa-instagram"></i></a>
-              <a href="#"><i class="fa-brands fa-tiktok"></i></a>
+              <a href="#" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+              <a href="#" aria-label="Twitter"><i class="fa-brands fa-x-twitter"></i></a>
+              <a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+              <a href="#" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
             </div>
           </div>
 
@@ -390,7 +521,7 @@ export function renderFooter() {
             <ul class="p-0">
               <li>About</li>
               <li>Features</li>
-              <li>works</li>
+              <li>Works</li>
               <li>Career</li>
             </ul>
           </div>
@@ -407,7 +538,7 @@ export function renderFooter() {
             <h5 class="text-uppercase">faq</h5>
             <ul class="p-0">
               <li>Account</li>
-              <li>manage Deliveries</li>
+              <li>Manage Deliveries</li>
               <li>Orders</li>
               <li>Payment</li>
             </ul>
@@ -432,7 +563,7 @@ export function renderFooter() {
         <hr />
         <div class="row text-center mt-2">
           <div class="col-12">
-            <p>ShopNow.co &copy; 2024, All Rights Reserved</p>
+            <p>ShopNow.co &copy; ${new Date().getFullYear()}, All Rights Reserved</p>
           </div>
         </div>`;
 }
@@ -449,37 +580,16 @@ import { CONFIG } from '../core/constants.js';
 
 const cartContainer = document.querySelector('.js-cart-container');
 
-document.addEventListener('click', (e) => {
-  // Quantity buttons
-  if (e.target.closest('.js-quantity-btn')) {
-    const btn = e.target.closest('.js-quantity-btn');
-    const { productId } = btn.dataset;
-    const cartItem = state.cart.find(
-      (item) => String(item.productId) === String(productId)
-    );
-
-    if (cartItem) {
-      const newQty = btn.classList.contains('js-plus')
-        ? cartItem.quantity + 1
-        : cartItem.quantity - 1;
-      CartService.updateQuantity(productId, newQty);
-      loadPage();
-    }
-  }
-
-  // Delete buttons
-  if (e.target.closest('.js-delete-icon')) {
-    const icon = e.target.closest('.js-delete-icon');
-    const { productId } = icon.dataset;
-    CartService.removeFromCart(productId);
-    loadPage();
-  }
-});
-
 async function loadPage() {
-  const carts = state.cart; // Use state directly
+  // Wait for products to load
+  await productService.getProducts();
+
+  const carts = state.cart;
+
+  // Render footer
   document.querySelector('.js-footer-container').innerHTML = renderFooter();
 
+  // Hide cart icons on cart page
   const icons = document.querySelectorAll('.nav--cart-icon');
   icons.forEach((i) => {
     if (!i.classList.contains('d-none')) {
@@ -491,9 +601,21 @@ async function loadPage() {
   renderPaymentSummary(carts);
 }
 
-await loadPage();
-
 function renderOrderSummary(carts) {
+  if (carts.length === 0) {
+    cartContainer.innerHTML = `
+      <div class="text-center py-5">
+        <i class="fa-solid fa-cart-shopping fs-1 mb-3"></i>
+        <h3>Your cart is empty</h3>
+        <p>Add some products to get started!</p>
+        <a href="./shop-page.html" class="btn bg-black text-white rounded-pill fw-bold mt-3">
+          Start Shopping
+        </a>
+      </div>
+    `;
+    return;
+  }
+
   let cartSummaryHTML = '';
 
   carts.forEach((cartItem) => {
@@ -550,9 +672,12 @@ function renderPaymentSummary(carts) {
   const deliveryFee = productTotal <= 0 ? 0 : DELIVERY_FEE;
   const grandTotal = (productTotal - discountAmount + deliveryFee).toFixed(2);
 
-  document.querySelector('.js-cart-summary').innerHTML = `
+  const summaryHTML =
+    carts.length === 0
+      ? ''
+      : `
     <div class="c-row d-flex justify-content-between mb-3">
-      <p>Subtotal (${CartService.getTotal()})</p>
+      <p>Subtotal (${CartService.getTotal()} items)</p>
       <p class="fw-bold">${formatCurrency(productTotal)}</p>
     </div>
     <div class="c-row d-flex justify-content-between mb-3">
@@ -570,7 +695,7 @@ function renderPaymentSummary(carts) {
     </div>
     <div class="row">
       <div class="col-12 mt-1 d-grid">
-        
+        <a
           href="./check-out-page.html"
           class="btn bg-black text-white rounded-pill fw-bold"
         >
@@ -579,7 +704,45 @@ function renderPaymentSummary(carts) {
         </a>
       </div>
     </div>`;
+
+  document.querySelector('.js-cart-summary').innerHTML = summaryHTML;
 }
+
+// Event delegation for cart interactions
+document.addEventListener('click', (e) => {
+  // Quantity buttons
+  if (e.target.closest('.js-quantity-btn')) {
+    const btn = e.target.closest('.js-quantity-btn');
+    const { productId } = btn.dataset;
+    const cartItem = state.cart.find(
+      (item) => String(item.productId) === String(productId)
+    );
+
+    if (cartItem) {
+      const newQty = btn.classList.contains('js-plus')
+        ? cartItem.quantity + 1
+        : cartItem.quantity - 1;
+      CartService.updateQuantity(productId, newQty);
+      loadPage();
+    }
+  }
+
+  // Delete buttons
+  if (e.target.closest('.js-delete-icon')) {
+    const icon = e.target.closest('.js-delete-icon');
+    const { productId } = icon.dataset;
+    CartService.removeFromCart(productId);
+    loadPage();
+  }
+});
+
+// Listen for cart changes
+window.addEventListener('cartChanged', () => {
+  loadPage();
+});
+
+// Initialize page
+await loadPage();
 </file>
 
 <file path="pages/shop.js">
@@ -593,54 +756,60 @@ async function loadPage() {
   const totalCart = document.querySelectorAll('.nav--cart-counter');
   const cartIcons = document.querySelectorAll('.cart-icon');
 
-  updateCartUI(cartIcons, totalCart);
+  CartService.updateCartUI(cartIcons, totalCart);
 
   try {
     const products = await productService.getProducts();
     document.querySelector('.js-product-container').innerHTML =
       ProductCard.renderList(products);
 
-    // Add to cart functionality
-    document.addEventListener('click', (e) => {
-      if (e.target.matches('.js-add-to-cart')) {
-        const { productId } = e.target.dataset;
-        const statusMessage = document.querySelector(
-          `[data-status="${productId}"]`
-        );
-
-        CartService.addToCart(productId);
-        updateCartUI(cartIcons, totalCart);
-
-        statusMessage.classList.remove('d-none');
-        setTimeout(() => {
-          statusMessage.classList.add('d-none');
-        }, 1000);
-      }
-    });
+    // Add to cart functionality using event delegation
+    document.addEventListener('click', handleAddToCart);
   } catch (error) {
     console.error('Failed to load products:', error);
+    document.querySelector('.js-product-container').innerHTML = `
+      <div class="col-12 text-center">
+        <p class="text-danger">Failed to load products. Please refresh the page.</p>
+      </div>
+    `;
   }
 }
 
-function updateCartUI(icons, totalCountElements) {
-  const cartQty = CartService.getTotal();
+function handleAddToCart(e) {
+  if (e.target.matches('.js-add-to-cart')) {
+    const { productId } = e.target.dataset;
+    const statusMessage = document.querySelector(
+      `[data-status="${productId}"]`
+    );
 
-  icons.forEach((icon) => {
-    icon.addEventListener('click', () => {
-      window.location.href = './add-to-cart-page.html';
-    });
-  });
+    CartService.addToCart(productId);
 
-  if (cartQty !== 0) {
-    totalCountElements.forEach((count) => {
-      count.classList.remove('d-none');
-      count.textContent = cartQty;
-    });
+    // Update cart UI
+    const totalCart = document.querySelectorAll('.nav--cart-counter');
+    const cartIcons = document.querySelectorAll('.cart-icon');
+    CartService.updateCartUI(cartIcons, totalCart);
+
+    // Show "Added" message
+    if (statusMessage) {
+      statusMessage.classList.remove('d-none');
+      setTimeout(() => {
+        statusMessage.classList.add('d-none');
+      }, 1000);
+    }
   }
 }
 
+// Listen for cart changes
+window.addEventListener('cartChanged', () => {
+  const totalCart = document.querySelectorAll('.nav--cart-counter');
+  const cartIcons = document.querySelectorAll('.cart-icon');
+  CartService.updateCartUI(cartIcons, totalCart);
+});
+
+// Initialize page
 await loadPage();
 
+// Render footer
 document.querySelector('.js-footer-container').innerHTML = renderFooter();
 </file>
 
@@ -651,12 +820,14 @@ import { CONFIG } from '../core/constants.js';
 
 export class CartService {
   static addToCart(productId, quantity = 1) {
-    const item = state.cart.find((p) => p.productId === productId);
+    const item = state.cart.find(
+      (p) => String(p.productId) === String(productId)
+    );
 
     if (item) {
       item.quantity += quantity;
     } else {
-      state.cart.push({ productId, quantity });
+      state.cart.push({ productId: String(productId), quantity });
     }
 
     state.saveCart();
@@ -668,7 +839,9 @@ export class CartService {
       return this.removeFromCart(productId);
     }
 
-    const item = state.cart.find((p) => p.productId === productId);
+    const item = state.cart.find(
+      (p) => String(p.productId) === String(productId)
+    );
     if (item) {
       item.quantity = quantity;
       state.saveCart();
@@ -677,7 +850,9 @@ export class CartService {
   }
 
   static removeFromCart(productId) {
-    state.cart = state.cart.filter((item) => item.productId !== productId);
+    state.cart = state.cart.filter(
+      (item) => String(item.productId) !== String(productId)
+    );
     state.saveCart();
     this.notifyCartChange();
   }
@@ -693,7 +868,6 @@ export class CartService {
   }
 
   static notifyCartChange() {
-    // Dispatch custom event for reactive updates
     window.dispatchEvent(
       new CustomEvent('cartChanged', {
         detail: { total: this.getTotal() },
@@ -701,13 +875,8 @@ export class CartService {
     );
   }
 
-  static updateCart(icons, totalCountElements) {
+  static updateCartUI(icons, totalCountElements) {
     const cartQty = this.getTotal();
-
-    icons.forEach((icon) => {
-      icon.removeEventListener('click', this._handleCartClick);
-      icon.addEventListener('click', this._handleCartClick);
-    });
 
     if (cartQty !== 0) {
       totalCountElements.forEach((count) => {
@@ -719,10 +888,6 @@ export class CartService {
         count.classList.add('d-none');
       });
     }
-  }
-
-  static _handleCartClick() {
-    window.location.href = './add-to-cart-page.html';
   }
 }
 </file>
@@ -750,7 +915,8 @@ class ProductService {
       this.cacheTime = Date.now();
       return this.cache;
     } catch (error) {
-      return handleError(error, 'Failed to load products');
+      handleError(error, 'Failed to load products. Please try again.');
+      return [];
     }
   }
 
@@ -810,10 +976,19 @@ export const productService = new ProductService();
   height: 200px;
   width: 300px;
 }
+
+/* Empty cart state */
+.cart-container .text-center {
+  padding: 3rem 1rem;
+}
+
+.cart-container .text-center i {
+  color: #6c757d;
+}
 </file>
 
 <file path="ui/productCard.js">
-// ui/components/productCard.js
+// ui/productCard.js
 import { convertToTens } from '../utils/rating.js';
 import { formatCurrency } from '../utils/formatters.js';
 
@@ -878,40 +1053,26 @@ export class ProductCard {
 </file>
 
 <file path="utils/rating.js">
+// utils/rating.js
 export function convertToTens(num) {
-  let rating = Math.round(num * 10);
+  const rating = Math.round(num * 10);
 
-  rating =
-    rating <= 0
-      ? "0"
-      : rating <= 5
-      ? "05"
-      : rating <= 10
-      ? "10"
-      : rating <= 15
-      ? "15"
-      : rating <= 20
-      ? "20"
-      : rating <= 25
-      ? "25"
-      : rating <= 30
-      ? "30"
-      : rating <= 35
-      ? "35"
-      : rating <= 40
-      ? "40"
-      : rating <= 45
-      ? "45"
-      : rating <= 50
-      ? "50"
-      : "50";
-
-  return rating;
+  if (rating <= 0) return '0';
+  if (rating <= 5) return '05';
+  if (rating <= 10) return '10';
+  if (rating <= 15) return '15';
+  if (rating <= 20) return '20';
+  if (rating <= 25) return '25';
+  if (rating <= 30) return '30';
+  if (rating <= 35) return '35';
+  if (rating <= 40) return '40';
+  if (rating <= 45) return '45';
+  return '50';
 }
 </file>
 
 <file path="styles/main.css">
-@import url("https://fonts.cdnfonts.com/css/satoshi");
+@import url('https://fonts.cdnfonts.com/css/satoshi');
 
 @font-face {
   font-family: integral;
@@ -924,7 +1085,7 @@ export function convertToTens(num) {
   --sec-color: #f0eeed;
   --text-color: #000000;
   --heading-ff: integral, sans-serif;
-  --ff: "Satoshi", sans-serif;
+  --ff: 'Satoshi', sans-serif;
 }
 
 * {
@@ -1111,6 +1272,21 @@ footer h5 {
   .heading-1 {
     font-size: 2rem;
   }
+}
+
+/* Form validation styles */
+.is-invalid {
+  border-color: #dc3545 !important;
+  padding-right: calc(1.5em + 0.75rem);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.1875rem) center;
+  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.is-invalid:focus {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
 }
 </file>
 
@@ -1992,6 +2168,7 @@ footer h5 {
 </file>
 
 <file path="main.js">
+// main.js
 import { productService } from './services/productService.js';
 import { CartService } from './services/cartService.js';
 import { ProductCard } from './ui/productCard.js';
@@ -2000,40 +2177,65 @@ import { renderFooter } from './ui/footer.js';
 async function loadPage() {
   const totalCart = document.querySelectorAll('.nav--cart-counter');
   const cartIcons = document.querySelectorAll('.cart-icon');
-  CartService.updateCart(cartIcons, totalCart);
+
+  CartService.updateCartUI(cartIcons, totalCart);
 
   try {
-    const Products = await productService.getProducts();
-    const firstFourProducts = Products.slice(0, 4);
+    const products = await productService.getProducts();
+    const firstFourProducts = products.slice(0, 4);
 
-    // display first 4 products
+    // Display first 4 products
     document.querySelector('.js-product-container').innerHTML =
-      renderProductCard(firstFourProducts);
+      ProductCard.renderList(firstFourProducts);
 
-    // add to cart functionality
-    document.addEventListener('click', (e) => {
-      if (e.target.matches('.js-add-to-cart')) {
-        const { productId } = e.target.dataset;
-        const statusMessage = document.querySelector(
-          `.js-added-status-${productId}`
-        );
-        CartService.addToCart(productId);
-        updateCart(cartIcons, totalCart);
-        setTimeout(() => {
-          statusMessage.classList.toggle('d-none');
-        }, 1000);
-        statusMessage.classList.toggle('d-none');
-      }
-    });
+    // Add to cart functionality using event delegation
+    document.addEventListener('click', handleAddToCart);
   } catch (error) {
-    console.log(error);
+    console.error('Failed to load page:', error);
+    document.querySelector('.js-product-container').innerHTML = `
+      <div class="col-12 text-center">
+        <p class="text-danger">Failed to load products. Please refresh the page.</p>
+      </div>
+    `;
   }
 }
 
+function handleAddToCart(e) {
+  if (e.target.matches('.js-add-to-cart')) {
+    const { productId } = e.target.dataset;
+    const statusMessage = document.querySelector(
+      `[data-status="${productId}"]`
+    );
+
+    CartService.addToCart(productId);
+
+    // Update cart UI
+    const totalCart = document.querySelectorAll('.nav--cart-counter');
+    const cartIcons = document.querySelectorAll('.cart-icon');
+    CartService.updateCartUI(cartIcons, totalCart);
+
+    // Show "Added" message
+    if (statusMessage) {
+      statusMessage.classList.remove('d-none');
+      setTimeout(() => {
+        statusMessage.classList.add('d-none');
+      }, 1000);
+    }
+  }
+}
+
+// Listen for cart changes
+window.addEventListener('cartChanged', () => {
+  const totalCart = document.querySelectorAll('.nav--cart-counter');
+  const cartIcons = document.querySelectorAll('.cart-icon');
+  CartService.updateCartUI(cartIcons, totalCart);
+});
+
+// Initialize page
 await loadPage();
 
+// Render footer
 document.querySelector('.js-footer-container').innerHTML = renderFooter();
-``;
 </file>
 
 </files>
