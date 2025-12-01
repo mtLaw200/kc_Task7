@@ -31,3 +31,12 @@
   height: 200px;
   width: 300px;
 }
+
+/* Empty cart state */
+.cart-container .text-center {
+  padding: 3rem 1rem;
+}
+
+.cart-container .text-center i {
+  color: #6c757d;
+}

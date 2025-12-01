@@ -1,47 +1,76 @@
+// services/cartService.js
 import { state } from '../core/state.js';
+import { CONFIG } from '../core/constants.js';
 
-export function addToCart(productId) {
-  const item = state.cart.find((p) => p.productId === productId);
-  item ? item.quantity++ : state.cart.push({ productId, quantity: 1 });
-  saveCart();
-}
+export class CartService {
+  static addToCart(productId, quantity = 1) {
+    const item = state.cart.find(
+      (p) => String(p.productId) === String(productId)
+    );
 
-export function removeFromCart(productId) {
-  state.cart = state.cart.filter((item) => item.productId !== productId);
-  saveCart();
-}
+    if (item) {
+      item.quantity += quantity;
+    } else {
+      state.cart.push({ productId: String(productId), quantity });
+    }
 
-export function saveCart() {
-  localStorage.setItem('shop-now-cart', JSON.stringify(state.cart));
-}
-
-export function getCartTotal() {
-  return state.cart.reduce((sum, item) => sum + item.quantity, 0);
-}
-
-export function clearCart() {
-  state.cart = [];
-  localStorage.removeItem('shop-now-cart');
-}
-
-export function updateCart(icons, totalCount) {
-  loadCart();
-  let cartQty = getCartTotal();
-
-  icons.forEach((icon) => {
-    icon.addEventListener('click', () => {
-      open('../add-to-cart-page.html', '_self');
-    });
-  });
-
-  if (cartQty != 0) {
-    totalCount.forEach((count) => {
-      count.classList.remove('d-none');
-      count.innerHTML = cartQty;
-    });
+    state.saveCart();
+    this.notifyCartChange();
   }
-}
-export function loadCart() {
-  const cartData = localStorage.getItem('shop-now-cart');
-  return (state.cart = cartData ? JSON.parse(cartData) : []);
+
+  static updateQuantity(productId, quantity) {
+    if (quantity < 1) {
+      return this.removeFromCart(productId);
+    }
+
+    const item = state.cart.find(
+      (p) => String(p.productId) === String(productId)
+    );
+    if (item) {
+      item.quantity = quantity;
+      state.saveCart();
+      this.notifyCartChange();
+    }
+  }
+
+  static removeFromCart(productId) {
+    state.cart = state.cart.filter(
+      (item) => String(item.productId) !== String(productId)
+    );
+    state.saveCart();
+    this.notifyCartChange();
+  }
+
+  static clearCart() {
+    state.cart = [];
+    localStorage.removeItem(CONFIG.STORAGE_KEY);
+    this.notifyCartChange();
+  }
+
+  static getTotal() {
+    return state.getCartTotal();
+  }
+
+  static notifyCartChange() {
+    window.dispatchEvent(
+      new CustomEvent('cartChanged', {
+        detail: { total: this.getTotal() },
+      })
+    );
+  }
+
+  static updateCartUI(icons, totalCountElements) {
+    const cartQty = this.getTotal();
+
+    if (cartQty !== 0) {
+      totalCountElements.forEach((count) => {
+        count.classList.remove('d-none');
+        count.textContent = cartQty;
+      });
+    } else {
+      totalCountElements.forEach((count) => {
+        count.classList.add('d-none');
+      });
+    }
+  }
 }

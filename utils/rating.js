@@ -1,30 +1,16 @@
+// utils/rating.js
 export function convertToTens(num) {
-  let rating = Math.round(num * 10);
+  const rating = Math.round(num * 10);
 
-  rating =
-    rating <= 0
-      ? "0"
-      : rating <= 5
-      ? "05"
-      : rating <= 10
-      ? "10"
-      : rating <= 15
-      ? "15"
-      : rating <= 20
-      ? "20"
-      : rating <= 25
-      ? "25"
-      : rating <= 30
-      ? "30"
-      : rating <= 35
-      ? "35"
-      : rating <= 40
-      ? "40"
-      : rating <= 45
-      ? "45"
-      : rating <= 50
-      ? "50"
-      : "50";
-
-  return rating;
+  if (rating <= 0) return '0';
+  if (rating <= 5) return '05';
+  if (rating <= 10) return '10';
+  if (rating <= 15) return '15';
+  if (rating <= 20) return '20';
+  if (rating <= 25) return '25';
+  if (rating <= 30) return '30';
+  if (rating <= 35) return '35';
+  if (rating <= 40) return '40';
+  if (rating <= 45) return '45';
+  return '50';
 }

@@ -1,3 +1,4 @@
+// ui/footer.js
 export function renderFooter() {
   return `<div class="row g-4">
           <div class="col-12 col-lg-4">
@@ -8,10 +9,10 @@ export function renderFooter() {
               Your one-stop shop for all your needs. Browse our diverse range of products and discover the convenience of shopping with us.
             </p>
             <div class="footer--social-links">
-              <a href="#"><i class="fa-brands fa-facebook-f"></i></a>
-              <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
-              <a href="#"><i class="fa-brands fa-instagram"></i></a>
-              <a href="#"><i class="fa-brands fa-tiktok"></i></a>
+              <a href="#" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+              <a href="#" aria-label="Twitter"><i class="fa-brands fa-x-twitter"></i></a>
+              <a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+              <a href="#" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
             </div>
           </div>
 
@@ -20,7 +21,7 @@ export function renderFooter() {
             <ul class="p-0">
               <li>About</li>
               <li>Features</li>
-              <li>works</li>
+              <li>Works</li>
               <li>Career</li>
             </ul>
           </div>
@@ -37,7 +38,7 @@ export function renderFooter() {
             <h5 class="text-uppercase">faq</h5>
             <ul class="p-0">
               <li>Account</li>
-              <li>manage Deliveries</li>
+              <li>Manage Deliveries</li>
               <li>Orders</li>
               <li>Payment</li>
             </ul>
@@ -62,7 +63,7 @@ export function renderFooter() {
         <hr />
         <div class="row text-center mt-2">
           <div class="col-12">
-            <p>ShopNow.co &copy; 2024, All Rights Reserved</p>
+            <p>ShopNow.co &copy; ${new Date().getFullYear()}, All Rights Reserved</p>
           </div>
         </div>`;
 }
