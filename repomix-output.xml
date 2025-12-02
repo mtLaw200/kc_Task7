@@ -40,54 +40,47 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
+.repomixignore
 add-to-cart-page.html
-assets/brands/calvin-klein.jpeg
-assets/brands/gucci_logo_grande.webp
-assets/brands/prada.jpg
-assets/brands/zara-brand-logo-symbol.jpg
-assets/categories/clothing.jpg
-assets/categories/electonics.jpg
-assets/categories/house-hold.jpg
-assets/categories/self-care.jpg
-assets/hero-main.png
-assets/ratings/rating-0.png
-assets/ratings/rating-05.png
-assets/ratings/rating-10.png
-assets/ratings/rating-15.png
-assets/ratings/rating-20.png
-assets/ratings/rating-25.png
-assets/ratings/rating-30.png
-assets/ratings/rating-35.png
-assets/ratings/rating-40.png
-assets/ratings/rating-45.png
-assets/ratings/rating-50.png
-assets/Vector-1.png
 check-out-page.html
+core/auth.js
 core/constants.js
 core/http.js
 core/state.js
-fonts/Fontspring-DEMO-integralcf-heavy.otf
+customer/login.html
+customer/register.html
 index.html
 main.js
 pages/cart.js
 pages/check.js
+pages/customer/login.js
+pages/customer/register.js
 pages/shop.js
+services/authService.js
 services/cartService.js
 services/productService.js
 shop-page.html
 styles/main.css
+styles/pages/auth.css
 styles/pages/cart-page.css
 styles/pages/checkout.css
 ui/footer.js
 ui/productCard.js
+utils/auth-guard.js
 utils/debounce.js
 utils/errorHandler.js
 utils/formatters.js
 utils/rating.js
+utils/validators.js
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path=".repomixignore">
+assets/
+fonts/
+</file>
 
 <file path="core/constants.js">
 // core/constants.js
@@ -445,6 +438,114 @@ export function formatDate(date) {
 }
 </file>
 
+<file path="core/auth.js">
+// core/auth.js - Authentication Handler
+import { CONFIG } from './constants.js';
+
+class AuthManager {
+  constructor() {
+    this.currentUser = this.loadUser();
+    this.TOKEN_KEY = 'shop-now-token';
+    this.USER_KEY = 'shop-now-user';
+  }
+
+  // Load user from localStorage
+  loadUser() {
+    try {
+      const userStr = localStorage.getItem(this.USER_KEY);
+      return userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      console.error('Failed to load user:', e);
+      return null;
+    }
+  }
+
+  // Save user to localStorage
+  saveUser(user) {
+    try {
+      localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+      this.currentUser = user;
+    } catch (e) {
+      console.error('Failed to save user:', e);
+    }
+  }
+
+  // Get auth token
+  getToken() {
+    return localStorage.getItem(this.TOKEN_KEY);
+  }
+
+  // Save auth token
+  saveToken(token) {
+    localStorage.setItem(this.TOKEN_KEY, token);
+  }
+
+  // Login user
+  login(user, token) {
+    this.saveUser(user);
+    this.saveToken(token);
+    this.notifyAuthChange('login', user);
+  }
+
+  // Logout user
+  logout() {
+    const user = this.currentUser;
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.USER_KEY);
+    this.currentUser = null;
+    this.notifyAuthChange('logout', user);
+  }
+
+  // Check if user is authenticated
+  isAuthenticated() {
+    return this.currentUser !== null && this.getToken() !== null;
+  }
+
+  // Check if user is admin
+  isAdmin() {
+    return this.currentUser?.role === 'admin';
+  }
+
+  // Get current user
+  getCurrentUser() {
+    return this.currentUser;
+  }
+
+  // Update current user
+  updateUser(updates) {
+    if (this.currentUser) {
+      this.currentUser = { ...this.currentUser, ...updates };
+      this.saveUser(this.currentUser);
+      this.notifyAuthChange('update', this.currentUser);
+    }
+  }
+
+  // Notify auth state change
+  notifyAuthChange(action, user) {
+    window.dispatchEvent(
+      new CustomEvent('authChanged', {
+        detail: { action, user },
+      })
+    );
+  }
+
+  // Get auth headers for API calls
+  getAuthHeaders() {
+    const token = this.getToken();
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      : {
+          'Content-Type': 'application/json',
+        };
+  }
+}
+
+export const auth = new AuthManager();
+</file>
+
 <file path="core/http.js">
 // core/http.js
 export async function httpGet(url) {
@@ -495,6 +596,1162 @@ class AppState {
 }
 
 export const state = new AppState();
+</file>
+
+<file path="customer/login.html">
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+      crossorigin="anonymous"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="../styles/main.css" />
+    <link rel="stylesheet" href="../styles/pages/auth.css" />
+    <title>Login - ShopNow</title>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg bg-white py-3 fixed-top c-shadow">
+      <div class="container-lg">
+        <a class="navbar-brand nav--brand-name" href="../index.html"
+          >ShopNow.co</a
+        >
+      </div>
+    </nav>
+
+    <!-- Login Section -->
+    <section class="auth-section">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-12 col-md-8 col-lg-5">
+            <div class="auth-card">
+              <div class="text-center mb-4">
+                <h1 class="auth-title">Welcome Back</h1>
+                <p class="text-muted">Sign in to your account</p>
+              </div>
+
+              <!-- Demo Credentials Info -->
+              <div class="alert alert-info" role="alert">
+                <strong>Demo Mode:</strong><br />
+                Customer: Use any email/password you registered with<br />
+                Admin: admin@shopnow.co / admin123
+              </div>
+
+              <form id="loginForm" novalidate>
+                <div class="mb-3">
+                  <label for="email" class="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    class="form-control"
+                    id="email"
+                    name="email"
+                    placeholder="your@email.com"
+                    required
+                  />
+                  <div class="invalid-feedback"></div>
+                </div>
+
+                <div class="mb-3">
+                  <label for="password" class="form-label">Password</label>
+                  <div class="password-input-group">
+                    <input
+                      type="password"
+                      class="form-control"
+                      id="password"
+                      name="password"
+                      placeholder="Enter your password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      class="password-toggle"
+                      id="togglePassword"
+                    >
+                      <i class="fa-solid fa-eye"></i>
+                    </button>
+                  </div>
+                  <div class="invalid-feedback"></div>
+                </div>
+
+                <div
+                  class="d-flex justify-content-between align-items-center mb-3"
+                >
+                  <div class="form-check">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      id="rememberMe"
+                    />
+                    <label class="form-check-label" for="rememberMe">
+                      Remember me
+                    </label>
+                  </div>
+                  <a href="#" class="text-decoration-none">Forgot password?</a>
+                </div>
+
+                <button
+                  type="submit"
+                  class="btn bg-black text-white w-100 rounded-pill fw-bold py-2"
+                  id="loginBtn"
+                >
+                  Sign In
+                </button>
+              </form>
+
+              <div class="text-center mt-4">
+                <p class="mb-0">
+                  Don't have an account?
+                  <a
+                    href="./register.html"
+                    class="fw-bold text-decoration-none"
+                  >
+                    Sign Up
+                  </a>
+                </p>
+              </div>
+
+              <div class="divider my-4">
+                <span>Or continue with</span>
+              </div>
+
+              <div class="row g-2">
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-dark w-100">
+                    <i class="fa-brands fa-google me-2"></i> Google
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-dark w-100">
+                    <i class="fa-brands fa-facebook-f me-2"></i> Facebook
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="./login.js"></script>
+  </body>
+</html>
+</file>
+
+<file path="customer/register.html">
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+      crossorigin="anonymous"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="../styles/main.css" />
+    <link rel="stylesheet" href="../styles/pages/auth.css" />
+    <title>Register - ShopNow</title>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg bg-white py-3 fixed-top c-shadow">
+      <div class="container-lg">
+        <a class="navbar-brand nav--brand-name" href="../index.html"
+          >ShopNow.co</a
+        >
+      </div>
+    </nav>
+
+    <!-- Register Section -->
+    <section class="auth-section">
+      <div class="container">
+        <div class="row justify-content-center">
+          <div class="col-12 col-md-10 col-lg-6">
+            <div class="auth-card">
+              <div class="text-center mb-4">
+                <h1 class="auth-title">Create Account</h1>
+                <p class="text-muted">Join ShopNow and start shopping</p>
+              </div>
+
+              <form id="registerForm" novalidate>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="firstName" class="form-label">First Name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="firstName"
+                      name="firstName"
+                      placeholder="John"
+                      required
+                    />
+                    <div class="invalid-feedback"></div>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label for="lastName" class="form-label">Last Name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="lastName"
+                      name="lastName"
+                      placeholder="Doe"
+                      required
+                    />
+                    <div class="invalid-feedback"></div>
+                  </div>
+
+                  <div class="col-12">
+                    <label for="email" class="form-label">Email Address</label>
+                    <input
+                      type="email"
+                      class="form-control"
+                      id="email"
+                      name="email"
+                      placeholder="your@email.com"
+                      required
+                    />
+                    <div class="invalid-feedback"></div>
+                  </div>
+
+                  <div class="col-12">
+                    <label for="phone" class="form-label"
+                      >Phone Number (Optional)</label
+                    >
+                    <input
+                      type="tel"
+                      class="form-control"
+                      id="phone"
+                      name="phone"
+                      placeholder="+234 123 456 7890"
+                    />
+                    <div class="invalid-feedback"></div>
+                  </div>
+
+                  <div class="col-12">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="password-input-group">
+                      <input
+                        type="password"
+                        class="form-control"
+                        id="password"
+                        name="password"
+                        placeholder="Create a strong password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="password-toggle"
+                        id="togglePassword"
+                      >
+                        <i class="fa-solid fa-eye"></i>
+                      </button>
+                    </div>
+                    <div class="invalid-feedback"></div>
+                    <small class="text-muted">
+                      Must be at least 8 characters with uppercase, lowercase,
+                      and number
+                    </small>
+                  </div>
+
+                  <div class="col-12">
+                    <label for="confirmPassword" class="form-label"
+                      >Confirm Password</label
+                    >
+                    <div class="password-input-group">
+                      <input
+                        type="password"
+                        class="form-control"
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        placeholder="Confirm your password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="password-toggle"
+                        id="toggleConfirmPassword"
+                      >
+                        <i class="fa-solid fa-eye"></i>
+                      </button>
+                    </div>
+                    <div class="invalid-feedback"></div>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="form-check">
+                      <input
+                        type="checkbox"
+                        class="form-check-input"
+                        id="agreeTerms"
+                        required
+                      />
+                      <label class="form-check-label" for="agreeTerms">
+                        I agree to the <a href="#">Terms of Service</a> and
+                        <a href="#">Privacy Policy</a>
+                      </label>
+                      <div class="invalid-feedback"></div>
+                    </div>
+                  </div>
+
+                  <div class="col-12">
+                    <button
+                      type="submit"
+                      class="btn bg-black text-white w-100 rounded-pill fw-bold py-2"
+                      id="registerBtn"
+                    >
+                      Create Account
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <div class="text-center mt-4">
+                <p class="mb-0">
+                  Already have an account?
+                  <a href="./login.html" class="fw-bold text-decoration-none">
+                    Sign In
+                  </a>
+                </p>
+              </div>
+
+              <div class="divider my-4">
+                <span>Or sign up with</span>
+              </div>
+
+              <div class="row g-2">
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-dark w-100">
+                    <i class="fa-brands fa-google me-2"></i> Google
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-dark w-100">
+                    <i class="fa-brands fa-facebook-f me-2"></i> Facebook
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="./register.js"></script>
+  </body>
+</html>
+</file>
+
+<file path="pages/customer/login.js">
+// pages/customer/login.js
+import { authService } from '../../services/authService.js';
+import { AuthGuard } from '../../utils/auth-guard.js';
+import { Validators, FormValidator } from '../../utils/validators.js';
+
+// Redirect if already logged in
+AuthGuard.redirectIfAuthenticated();
+
+class LoginPage {
+  constructor() {
+    this.form = document.getElementById('loginForm');
+    this.emailInput = document.getElementById('email');
+    this.passwordInput = document.getElementById('password');
+    this.loginBtn = document.getElementById('loginBtn');
+    this.validator = new FormValidator(this.form);
+
+    this.init();
+  }
+
+  init() {
+    this.attachEventListeners();
+    this.setupPasswordToggle();
+  }
+
+  attachEventListeners() {
+    this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+
+    // Real-time validation
+    this.emailInput.addEventListener('blur', () => this.validateEmail());
+    this.passwordInput.addEventListener('blur', () => this.validatePassword());
+  }
+
+  setupPasswordToggle() {
+    const toggleBtn = document.getElementById('togglePassword');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        const type =
+          this.passwordInput.type === 'password' ? 'text' : 'password';
+        this.passwordInput.type = type;
+
+        const icon = toggleBtn.querySelector('i');
+        icon.classList.toggle('fa-eye');
+        icon.classList.toggle('fa-eye-slash');
+      });
+    }
+  }
+
+  validateEmail() {
+    return this.validator.validateField('email', Validators.validateEmail);
+  }
+
+  validatePassword() {
+    const value = this.passwordInput.value;
+    if (!value) {
+      this.validator.showFieldError(this.passwordInput, 'Password is required');
+      return false;
+    }
+    this.validator.clearFieldError(this.passwordInput);
+    return true;
+  }
+
+  async handleSubmit(e) {
+    e.preventDefault();
+
+    // Clear previous errors
+    this.validator.clearAllErrors();
+
+    // Validate all fields
+    const emailValid = this.validateEmail();
+    const passwordValid = this.validatePassword();
+
+    if (!emailValid || !passwordValid) {
+      return;
+    }
+
+    // Disable button and show loading
+    this.setLoading(true);
+
+    try {
+      const credentials = {
+        email: this.emailInput.value,
+        password: this.passwordInput.value,
+      };
+
+      await authService.login(credentials);
+
+      // Redirect after successful login
+      const redirectUrl = AuthGuard.getRedirectAfterLogin();
+      window.location.href = redirectUrl;
+    } catch (error) {
+      console.error('Login error:', error);
+      this.validator.showFieldError(
+        this.passwordInput,
+        'Invalid email or password'
+      );
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  setLoading(loading) {
+    this.loginBtn.disabled = loading;
+    this.loginBtn.innerHTML = loading
+      ? '<span class="spinner-border spinner-border-sm me-2"></span>Signing in...'
+      : 'Sign In';
+  }
+}
+
+// Initialize page
+new LoginPage();
+</file>
+
+<file path="pages/customer/register.js">
+// pages/customer/register.js
+import { authService } from '../../services/authService.js';
+import { AuthGuard } from '../../utils/auth-guard.js';
+import { Validators, FormValidator } from '../../utils/validators.js';
+
+// Redirect if already logged in
+AuthGuard.redirectIfAuthenticated();
+
+class RegisterPage {
+  constructor() {
+    this.form = document.getElementById('registerForm');
+    this.firstNameInput = document.getElementById('firstName');
+    this.lastNameInput = document.getElementById('lastName');
+    this.emailInput = document.getElementById('email');
+    this.phoneInput = document.getElementById('phone');
+    this.passwordInput = document.getElementById('password');
+    this.confirmPasswordInput = document.getElementById('confirmPassword');
+    this.agreeTermsInput = document.getElementById('agreeTerms');
+    this.registerBtn = document.getElementById('registerBtn');
+    this.validator = new FormValidator(this.form);
+
+    this.init();
+  }
+
+  init() {
+    this.attachEventListeners();
+    this.setupPasswordToggles();
+  }
+
+  attachEventListeners() {
+    this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+
+    // Real-time validation
+    this.firstNameInput.addEventListener('blur', () =>
+      this.validateFirstName()
+    );
+    this.lastNameInput.addEventListener('blur', () => this.validateLastName());
+    this.emailInput.addEventListener('blur', () => this.validateEmail());
+    this.phoneInput.addEventListener('blur', () => this.validatePhone());
+    this.passwordInput.addEventListener('blur', () => this.validatePassword());
+    this.confirmPasswordInput.addEventListener('blur', () =>
+      this.validateConfirmPassword()
+    );
+    this.agreeTermsInput.addEventListener('change', () => this.validateTerms());
+  }
+
+  setupPasswordToggles() {
+    const setupToggle = (toggleId, inputElement) => {
+      const toggleBtn = document.getElementById(toggleId);
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          const type = inputElement.type === 'password' ? 'text' : 'password';
+          inputElement.type = type;
+
+          const icon = toggleBtn.querySelector('i');
+          icon.classList.toggle('fa-eye');
+          icon.classList.toggle('fa-eye-slash');
+        });
+      }
+    };
+
+    setupToggle('togglePassword', this.passwordInput);
+    setupToggle('toggleConfirmPassword', this.confirmPasswordInput);
+  }
+
+  validateFirstName() {
+    return this.validator.validateField(
+      'firstName',
+      Validators.validateName,
+      'First name'
+    );
+  }
+
+  validateLastName() {
+    return this.validator.validateField(
+      'lastName',
+      Validators.validateName,
+      'Last name'
+    );
+  }
+
+  validateEmail() {
+    return this.validator.validateField('email', Validators.validateEmail);
+  }
+
+  validatePhone() {
+    // Phone is optional
+    if (!this.phoneInput.value.trim()) {
+      this.validator.clearFieldError(this.phoneInput);
+      return true;
+    }
+    return this.validator.validateField('phone', Validators.validatePhone);
+  }
+
+  validatePassword() {
+    return this.validator.validateField(
+      'password',
+      Validators.validatePassword
+    );
+  }
+
+  validateConfirmPassword() {
+    const password = this.passwordInput.value;
+    const confirmPassword = this.confirmPasswordInput.value;
+
+    const result = Validators.validateConfirmPassword(
+      password,
+      confirmPassword
+    );
+    if (!result.valid) {
+      this.validator.showFieldError(this.confirmPasswordInput, result.message);
+      return false;
+    }
+
+    this.validator.clearFieldError(this.confirmPasswordInput);
+    return true;
+  }
+
+  validateTerms() {
+    if (!this.agreeTermsInput.checked) {
+      this.validator.showFieldError(
+        this.agreeTermsInput,
+        'You must agree to the terms and conditions'
+      );
+      return false;
+    }
+    this.validator.clearFieldError(this.agreeTermsInput);
+    return true;
+  }
+
+  async handleSubmit(e) {
+    e.preventDefault();
+
+    // Clear previous errors
+    this.validator.clearAllErrors();
+
+    // Validate all fields
+    const firstNameValid = this.validateFirstName();
+    const lastNameValid = this.validateLastName();
+    const emailValid = this.validateEmail();
+    const phoneValid = this.validatePhone();
+    const passwordValid = this.validatePassword();
+    const confirmPasswordValid = this.validateConfirmPassword();
+    const termsValid = this.validateTerms();
+
+    if (
+      !firstNameValid ||
+      !lastNameValid ||
+      !emailValid ||
+      !phoneValid ||
+      !passwordValid ||
+      !confirmPasswordValid ||
+      !termsValid
+    ) {
+      return;
+    }
+
+    // Disable button and show loading
+    this.setLoading(true);
+
+    try {
+      const userData = {
+        firstName: this.firstNameInput.value.trim(),
+        lastName: this.lastNameInput.value.trim(),
+        email: this.emailInput.value.trim(),
+        phone: this.phoneInput.value.trim(),
+        password: this.passwordInput.value,
+      };
+
+      await authService.register(userData);
+
+      // Redirect after successful registration
+      const redirectUrl = AuthGuard.getRedirectAfterLogin();
+      window.location.href = redirectUrl;
+    } catch (error) {
+      console.error('Registration error:', error);
+
+      // Show specific error on email field (most likely duplicate email)
+      if (error.message.includes('already registered')) {
+        this.validator.showFieldError(
+          this.emailInput,
+          'This email is already registered'
+        );
+      }
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  setLoading(loading) {
+    this.registerBtn.disabled = loading;
+    this.registerBtn.innerHTML = loading
+      ? '<span class="spinner-border spinner-border-sm me-2"></span>Creating account...'
+      : 'Create Account';
+  }
+}
+
+// Initialize page
+new RegisterPage();
+</file>
+
+<file path="services/authService.js">
+// services/authService.js
+import { auth } from '../core/auth.js';
+import { handleError, showNotification } from '../utils/errorHandler.js';
+
+class AuthService {
+  constructor() {
+    // In production, replace with actual API endpoint
+    this.API_URL = 'http://localhost:3000/api/auth';
+    // For MVP demo, use localStorage to simulate backend
+    this.DEMO_MODE = true;
+  }
+
+  // Register new user
+  async register(userData) {
+    try {
+      if (this.DEMO_MODE) {
+        return this.demoRegister(userData);
+      }
+
+      const response = await fetch(`${this.API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Registration failed');
+      }
+
+      const data = await response.json();
+      auth.login(data.user, data.token);
+      showNotification(
+        'Registration successful! Welcome to ShopNow.',
+        'success'
+      );
+      return data;
+    } catch (error) {
+      handleError(error, 'Registration failed. Please try again.');
+      throw error;
+    }
+  }
+
+  // Login user
+  async login(credentials) {
+    try {
+      if (this.DEMO_MODE) {
+        return this.demoLogin(credentials);
+      }
+
+      const response = await fetch(`${this.API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Login failed');
+      }
+
+      const data = await response.json();
+      auth.login(data.user, data.token);
+      showNotification(`Welcome back, ${data.user.firstName}!`, 'success');
+      return data;
+    } catch (error) {
+      handleError(error, 'Login failed. Please check your credentials.');
+      throw error;
+    }
+  }
+
+  // Logout user
+  logout() {
+    auth.logout();
+    showNotification('You have been logged out.', 'info');
+    window.location.href = '/index.html';
+  }
+
+  // Reset password
+  async resetPassword(email) {
+    try {
+      if (this.DEMO_MODE) {
+        showNotification('Password reset link sent to your email.', 'success');
+        return { success: true };
+      }
+
+      const response = await fetch(`${this.API_URL}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send reset email');
+      }
+
+      showNotification('Password reset link sent to your email.', 'success');
+      return await response.json();
+    } catch (error) {
+      handleError(error, 'Failed to send reset email.');
+      throw error;
+    }
+  }
+
+  // Verify token
+  async verifyToken() {
+    try {
+      if (this.DEMO_MODE) {
+        return auth.isAuthenticated();
+      }
+
+      const token = auth.getToken();
+      if (!token) return false;
+
+      const response = await fetch(`${this.API_URL}/verify`, {
+        method: 'GET',
+        headers: auth.getAuthHeaders(),
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return false;
+    }
+  }
+
+  // DEMO MODE METHODS (Remove in production)
+  demoRegister(userData) {
+    // Simulate API delay
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const users = JSON.parse(localStorage.getItem('demo-users') || '[]');
+
+        // Check if email exists
+        if (users.find((u) => u.email === userData.email)) {
+          throw new Error('Email already registered');
+        }
+
+        const newUser = {
+          id: Date.now().toString(),
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          phone: userData.phone || '',
+          role: 'customer',
+          addresses: [],
+          createdAt: new Date().toISOString(),
+        };
+
+        // Store password separately (in production, this would be hashed on backend)
+        const credentials = JSON.parse(
+          localStorage.getItem('demo-credentials') || '{}'
+        );
+        credentials[userData.email] = userData.password;
+        localStorage.setItem('demo-credentials', JSON.stringify(credentials));
+
+        users.push(newUser);
+        localStorage.setItem('demo-users', JSON.stringify(users));
+
+        const token = btoa(
+          JSON.stringify({ userId: newUser.id, exp: Date.now() + 86400000 })
+        );
+
+        resolve({ user: newUser, token });
+      }, 500);
+    });
+  }
+
+  demoLogin(credentials) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const users = JSON.parse(localStorage.getItem('demo-users') || '[]');
+        const storedCredentials = JSON.parse(
+          localStorage.getItem('demo-credentials') || '{}'
+        );
+
+        // Check demo admin account
+        if (
+          credentials.email === 'admin@shopnow.co' &&
+          credentials.password === 'admin123'
+        ) {
+          const adminUser = {
+            id: 'admin-1',
+            email: 'admin@shopnow.co',
+            firstName: 'Admin',
+            lastName: 'User',
+            role: 'admin',
+            createdAt: new Date().toISOString(),
+          };
+
+          const token = btoa(
+            JSON.stringify({ userId: adminUser.id, exp: Date.now() + 86400000 })
+          );
+          resolve({ user: adminUser, token });
+          return;
+        }
+
+        const user = users.find((u) => u.email === credentials.email);
+
+        if (!user) {
+          reject(new Error('Invalid email or password'));
+          return;
+        }
+
+        if (storedCredentials[credentials.email] !== credentials.password) {
+          reject(new Error('Invalid email or password'));
+          return;
+        }
+
+        const token = btoa(
+          JSON.stringify({ userId: user.id, exp: Date.now() + 86400000 })
+        );
+        resolve({ user, token });
+      }, 500);
+    });
+  }
+}
+
+export const authService = new AuthService();
+</file>
+
+<file path="styles/pages/auth.css">
+/* styles/pages/auth.css */
+
+.auth-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 140px 1rem 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.auth-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 2.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+}
+
+.auth-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+/* Password Input Group */
+.password-input-group {
+  position: relative;
+}
+
+.password-input-group input {
+  padding-right: 3rem;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: color 0.2s;
+}
+
+.password-toggle:hover {
+  color: var(--text-color);
+}
+
+/* Form Controls */
+.auth-card .form-label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+}
+
+.auth-card .form-control {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 2px solid #e9ecef;
+  transition: all 0.3s;
+}
+
+.auth-card .form-control:focus {
+  border-color: var(--text-color);
+  box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.1);
+}
+
+.auth-card .form-control.is-valid {
+  border-color: #28a745;
+  padding-right: calc(1.5em + 0.75rem);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2328a745' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.1875rem) center;
+  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.auth-card .form-control.is-invalid {
+  border-color: #dc3545;
+  padding-right: calc(1.5em + 0.75rem);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.1875rem) center;
+  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.auth-card .invalid-feedback {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #dc3545;
+}
+
+/* Checkbox Styling */
+.auth-card .form-check-input {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #e9ecef;
+  cursor: pointer;
+}
+
+.auth-card .form-check-input:checked {
+  background-color: var(--text-color);
+  border-color: var(--text-color);
+}
+
+.auth-card .form-check-label {
+  margin-left: 0.5rem;
+  cursor: pointer;
+}
+
+/* Divider */
+.divider {
+  position: relative;
+  text-align: center;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #dee2e6;
+}
+
+.divider span {
+  position: relative;
+  display: inline-block;
+  padding: 0 1rem;
+  background: white;
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+/* Social Buttons */
+.auth-card .btn-outline-dark {
+  border: 2px solid #e9ecef;
+  color: var(--text-color);
+  font-weight: 600;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s;
+}
+
+.auth-card .btn-outline-dark:hover {
+  background: var(--text-color);
+  border-color: var(--text-color);
+  color: white;
+}
+
+/* Submit Button */
+.auth-card .btn.bg-black {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.auth-card .btn.bg-black:hover {
+  background: #333 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.auth-card .btn.bg-black:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Links */
+.auth-card a {
+  color: var(--text-color);
+  transition: color 0.2s;
+}
+
+.auth-card a:hover {
+  color: #333;
+}
+
+/* Loading Spinner */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .auth-card {
+    padding: 1.5rem;
+  }
+
+  .auth-title {
+    font-size: 1.75rem;
+  }
+
+  .auth-section {
+    padding: 120px 1rem 2rem;
+  }
+}
+
+/* Alert Styling */
+.auth-card .alert {
+  border-radius: 0.5rem;
+  border: none;
+  font-size: 0.875rem;
+}
+
+.auth-card .alert-info {
+  background-color: #e7f3ff;
+  color: #004085;
+}
+
+/* Focus State Improvements */
+.auth-card .form-control:focus,
+.auth-card .form-check-input:focus,
+.auth-card .btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.1);
+}
+
+/* Small Text */
+.auth-card small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+}
+
+/* Animation */
+.auth-card {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* End of styles/pages/auth.css */
 </file>
 
 <file path="ui/footer.js">
@@ -569,180 +1826,373 @@ export function renderFooter() {
 }
 </file>
 
-<file path="pages/cart.js">
-// pages/cart.js
-import { CartService } from '../services/cartService.js';
-import { state } from '../core/state.js';
-import { renderFooter } from '../ui/footer.js';
-import { productService } from '../services/productService.js';
-import { formatCurrency } from '../utils/formatters.js';
-import { CONFIG } from '../core/constants.js';
+<file path="utils/auth-guard.js">
+// utils/auth-guard.js - Route Protection
+import { auth } from '../core/auth.js';
+import { showNotification } from './errorHandler.js';
 
-const cartContainer = document.querySelector('.js-cart-container');
-
-async function loadPage() {
-  // Wait for products to load
-  await productService.getProducts();
-
-  const carts = state.cart;
-
-  // Render footer
-  document.querySelector('.js-footer-container').innerHTML = renderFooter();
-
-  // Hide cart icons on cart page
-  const icons = document.querySelectorAll('.nav--cart-icon');
-  icons.forEach((i) => {
-    if (!i.classList.contains('d-none')) {
-      i.classList.add('d-none');
+export class AuthGuard {
+  // Protect customer routes (requires authentication)
+  static requireAuth(redirectUrl = '/customer/login.html') {
+    if (!auth.isAuthenticated()) {
+      showNotification('Please login to continue.', 'warning');
+      window.location.href = redirectUrl;
+      return false;
     }
-  });
-
-  renderOrderSummary(carts);
-  renderPaymentSummary(carts);
-}
-
-function renderOrderSummary(carts) {
-  if (carts.length === 0) {
-    cartContainer.innerHTML = `
-      <div class="text-center py-5">
-        <i class="fa-solid fa-cart-shopping fs-1 mb-3"></i>
-        <h3>Your cart is empty</h3>
-        <p>Add some products to get started!</p>
-        <a href="./shop-page.html" class="btn bg-black text-white rounded-pill fw-bold mt-3">
-          Start Shopping
-        </a>
-      </div>
-    `;
-    return;
+    return true;
   }
 
-  let cartSummaryHTML = '';
-
-  carts.forEach((cartItem) => {
-    const matchingProduct = productService.getProductById(cartItem.productId);
-
-    if (matchingProduct) {
-      const { image, price, title, id } = matchingProduct;
-
-      cartSummaryHTML += `<div class="cart-item-container">
-        <div class="cart-item--image">
-          <img
-            src="${image}"
-            alt="${title}"
-            loading="lazy"
-            class="rounded-2 img-fit"
-          />
-        </div>
-        <div class="cart-item--details">
-          <div class="c-row d-flex justify-content-between align-items-center">
-            <p class="fw-bolder">${title}</p>
-            <div class="delete-icon fs-6 text-danger js-delete-icon" data-product-id='${id}'>
-              <i class="fa-solid fa-trash-can"></i>
-            </div>
-          </div>
-          <div class="c-row d-flex justify-content-between align-items-center">
-            <p class="fw-bolder fs-5">${formatCurrency(price)}</p>
-            <div class="quantity-control d-flex bg-body-tertiary px-3 rounded-pill py-2">
-              <div class="decrease-btn me-2 icon-btn js-minus js-quantity-btn" data-product-id="${id}">
-                <i class="fa-solid fa-minus"></i>
-              </div>
-              <div class="quantity-value fw-bold">${cartItem.quantity}</div>
-              <div class="increase-btn ms-2 icon-btn js-plus js-quantity-btn" data-product-id="${id}">
-                <i class="fa-solid fa-plus"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>`;
+  // Protect admin routes (requires admin role)
+  static requireAdmin(redirectUrl = '/customer/login.html') {
+    if (!auth.isAuthenticated()) {
+      showNotification('Please login to continue.', 'warning');
+      window.location.href = redirectUrl;
+      return false;
     }
-  });
 
-  cartContainer.innerHTML = cartSummaryHTML;
+    if (!auth.isAdmin()) {
+      showNotification('Access denied. Admin privileges required.', 'error');
+      window.location.href = '/index.html';
+      return false;
+    }
+
+    return true;
+  }
+
+  // Redirect if already authenticated (for login/register pages)
+  static redirectIfAuthenticated(redirectUrl = '/customer/profile.html') {
+    if (auth.isAuthenticated()) {
+      if (auth.isAdmin()) {
+        window.location.href = '/admin/index.html';
+      } else {
+        window.location.href = redirectUrl;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Check if user can access checkout
+  static canCheckout() {
+    return auth.isAuthenticated();
+  }
+
+  // Get redirect URL after login
+  static getRedirectAfterLogin() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirect = urlParams.get('redirect');
+
+    if (redirect) {
+      return decodeURIComponent(redirect);
+    }
+
+    if (auth.isAdmin()) {
+      return '/admin/index.html';
+    }
+
+    return '/customer/profile.html';
+  }
+
+  // Set redirect URL for after login
+  static setRedirectUrl(url) {
+    const loginUrl = new URL('/customer/login.html', window.location.origin);
+    loginUrl.searchParams.set('redirect', encodeURIComponent(url));
+    return loginUrl.toString();
+  }
 }
 
-function renderPaymentSummary(carts) {
-  const { DELIVERY_FEE, DISCOUNT_RATE } = CONFIG;
-
-  let productTotal = carts.reduce((sum, cartItem) => {
-    const product = productService.getProductById(cartItem.productId);
-    return sum + (product?.price || 0) * cartItem.quantity;
-  }, 0);
-
-  const discountAmount = (productTotal * DISCOUNT_RATE).toFixed(2);
-  const deliveryFee = productTotal <= 0 ? 0 : DELIVERY_FEE;
-  const grandTotal = (productTotal - discountAmount + deliveryFee).toFixed(2);
-
-  const summaryHTML =
-    carts.length === 0
-      ? ''
-      : `
-    <div class="c-row d-flex justify-content-between mb-3">
-      <p>Subtotal (${CartService.getTotal()} items)</p>
-      <p class="fw-bold">${formatCurrency(productTotal)}</p>
-    </div>
-    <div class="c-row d-flex justify-content-between mb-3">
-      <p>Discount (-${DISCOUNT_RATE * 100}%)</p>
-      <p class="fw-bold text-danger">-${formatCurrency(discountAmount)}</p>
-    </div>
-    <div class="c-row d-flex justify-content-between mb-3">
-      <p>Delivery Fee</p>
-      <p class="fw-bold">${formatCurrency(deliveryFee)}</p>
-    </div>
-    <hr />
-    <div class="c-row d-flex justify-content-between mb-3">
-      <p>Total</p>
-      <p class="fw-bolder fs-5">${formatCurrency(grandTotal)}</p>
-    </div>
-    <div class="row">
-      <div class="col-12 mt-1 d-grid">
-        <a
-          href="./check-out-page.html"
-          class="btn bg-black text-white rounded-pill fw-bold"
-        >
-          Go to Checkout
-          <i class="fa-solid fa-arrow-right ms-1"></i>
-        </a>
-      </div>
-    </div>`;
-
-  document.querySelector('.js-cart-summary').innerHTML = summaryHTML;
+// Auto-check auth on protected pages
+export function initAuthGuard(pageType = 'customer') {
+  if (pageType === 'admin') {
+    return AuthGuard.requireAdmin();
+  } else if (pageType === 'customer') {
+    return AuthGuard.requireAuth();
+  }
+  return true;
 }
+</file>
 
-// Event delegation for cart interactions
-document.addEventListener('click', (e) => {
-  // Quantity buttons
-  if (e.target.closest('.js-quantity-btn')) {
-    const btn = e.target.closest('.js-quantity-btn');
-    const { productId } = btn.dataset;
-    const cartItem = state.cart.find(
-      (item) => String(item.productId) === String(productId)
-    );
+<file path="utils/validators.js">
+// utils/validators.js - Form Validation
+export class Validators {
+  // Email validation
+  static validateEmail(email) {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      return { valid: false, message: 'Email is required' };
+    }
+    if (!regex.test(email)) {
+      return { valid: false, message: 'Invalid email format' };
+    }
+    return { valid: true };
+  }
 
-    if (cartItem) {
-      const newQty = btn.classList.contains('js-plus')
-        ? cartItem.quantity + 1
-        : cartItem.quantity - 1;
-      CartService.updateQuantity(productId, newQty);
-      loadPage();
+  // Password validation
+  static validatePassword(password) {
+    if (!password) {
+      return { valid: false, message: 'Password is required' };
+    }
+    if (password.length < 8) {
+      return {
+        valid: false,
+        message: 'Password must be at least 8 characters',
+      };
+    }
+    if (!/[A-Z]/.test(password)) {
+      return {
+        valid: false,
+        message: 'Password must contain at least one uppercase letter',
+      };
+    }
+    if (!/[a-z]/.test(password)) {
+      return {
+        valid: false,
+        message: 'Password must contain at least one lowercase letter',
+      };
+    }
+    if (!/[0-9]/.test(password)) {
+      return {
+        valid: false,
+        message: 'Password must contain at least one number',
+      };
+    }
+    return { valid: true };
+  }
+
+  // Confirm password validation
+  static validateConfirmPassword(password, confirmPassword) {
+    if (!confirmPassword) {
+      return { valid: false, message: 'Please confirm your password' };
+    }
+    if (password !== confirmPassword) {
+      return { valid: false, message: 'Passwords do not match' };
+    }
+    return { valid: true };
+  }
+
+  // Phone validation
+  static validatePhone(phone) {
+    const regex = /^[\d\s\-\+\(\)]+$/;
+    if (!phone) {
+      return { valid: false, message: 'Phone number is required' };
+    }
+    if (!regex.test(phone)) {
+      return { valid: false, message: 'Invalid phone number format' };
+    }
+    if (phone.replace(/\D/g, '').length < 10) {
+      return {
+        valid: false,
+        message: 'Phone number must be at least 10 digits',
+      };
+    }
+    return { valid: true };
+  }
+
+  // Name validation
+  static validateName(name, fieldName = 'Name') {
+    if (!name) {
+      return { valid: false, message: `${fieldName} is required` };
+    }
+    if (name.length < 2) {
+      return {
+        valid: false,
+        message: `${fieldName} must be at least 2 characters`,
+      };
+    }
+    if (!/^[a-zA-Z\s\-']+$/.test(name)) {
+      return {
+        valid: false,
+        message: `${fieldName} contains invalid characters`,
+      };
+    }
+    return { valid: true };
+  }
+
+  // Required field validation
+  static validateRequired(value, fieldName = 'Field') {
+    if (!value || (typeof value === 'string' && !value.trim())) {
+      return { valid: false, message: `${fieldName} is required` };
+    }
+    return { valid: true };
+  }
+
+  // Number validation
+  static validateNumber(value, fieldName = 'Value', min = null, max = null) {
+    if (!value && value !== 0) {
+      return { valid: false, message: `${fieldName} is required` };
+    }
+
+    const num = Number(value);
+    if (isNaN(num)) {
+      return { valid: false, message: `${fieldName} must be a number` };
+    }
+
+    if (min !== null && num < min) {
+      return { valid: false, message: `${fieldName} must be at least ${min}` };
+    }
+
+    if (max !== null && num > max) {
+      return { valid: false, message: `${fieldName} must be at most ${max}` };
+    }
+
+    return { valid: true };
+  }
+
+  // URL validation
+  static validateUrl(url, fieldName = 'URL') {
+    if (!url) {
+      return { valid: false, message: `${fieldName} is required` };
+    }
+    try {
+      new URL(url);
+      return { valid: true };
+    } catch {
+      return { valid: false, message: `Invalid ${fieldName} format` };
     }
   }
 
-  // Delete buttons
-  if (e.target.closest('.js-delete-icon')) {
-    const icon = e.target.closest('.js-delete-icon');
-    const { productId } = icon.dataset;
-    CartService.removeFromCart(productId);
-    loadPage();
+  // Zip code validation
+  static validateZipCode(zipCode) {
+    if (!zipCode) {
+      return { valid: false, message: 'Zip code is required' };
+    }
+    // Basic validation (adjust regex for specific country formats)
+    if (!/^[\d\s\-A-Za-z]{3,10}$/.test(zipCode)) {
+      return { valid: false, message: 'Invalid zip code format' };
+    }
+    return { valid: true };
   }
-});
 
-// Listen for cart changes
-window.addEventListener('cartChanged', () => {
-  loadPage();
-});
+  // Credit card validation (basic)
+  static validateCardNumber(cardNumber) {
+    if (!cardNumber) {
+      return { valid: false, message: 'Card number is required' };
+    }
+    const cleaned = cardNumber.replace(/\s/g, '');
+    if (!/^\d{13,19}$/.test(cleaned)) {
+      return { valid: false, message: 'Invalid card number' };
+    }
+    // Luhn algorithm
+    let sum = 0;
+    let isEven = false;
+    for (let i = cleaned.length - 1; i >= 0; i--) {
+      let digit = parseInt(cleaned[i]);
+      if (isEven) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      isEven = !isEven;
+    }
+    if (sum % 10 !== 0) {
+      return { valid: false, message: 'Invalid card number' };
+    }
+    return { valid: true };
+  }
 
-// Initialize page
-await loadPage();
+  // CVV validation
+  static validateCVV(cvv) {
+    if (!cvv) {
+      return { valid: false, message: 'CVV is required' };
+    }
+    if (!/^\d{3,4}$/.test(cvv)) {
+      return { valid: false, message: 'CVV must be 3 or 4 digits' };
+    }
+    return { valid: true };
+  }
+
+  // Expiry date validation (MM/YY)
+  static validateExpiry(expiry) {
+    if (!expiry) {
+      return { valid: false, message: 'Expiry date is required' };
+    }
+    const parts = expiry.split('/');
+    if (parts.length !== 2) {
+      return { valid: false, message: 'Invalid expiry format (use MM/YY)' };
+    }
+    const [month, year] = parts.map((p) => parseInt(p.trim()));
+    if (month < 1 || month > 12) {
+      return { valid: false, message: 'Invalid month' };
+    }
+    const now = new Date();
+    const currentYear = now.getFullYear() % 100;
+    const currentMonth = now.getMonth() + 1;
+    if (year < currentYear || (year === currentYear && month < currentMonth)) {
+      return { valid: false, message: 'Card has expired' };
+    }
+    return { valid: true };
+  }
+}
+
+// Form validation helper
+export class FormValidator {
+  constructor(formElement) {
+    this.form = formElement;
+    this.errors = {};
+  }
+
+  // Validate field and show error
+  validateField(fieldName, validator, ...args) {
+    const field = this.form.querySelector(`[name="${fieldName}"]`);
+    if (!field) return true;
+
+    const value = field.value;
+    const result = validator(value, ...args);
+
+    if (!result.valid) {
+      this.errors[fieldName] = result.message;
+      this.showFieldError(field, result.message);
+      return false;
+    }
+
+    this.clearFieldError(field);
+    delete this.errors[fieldName];
+    return true;
+  }
+
+  // Show field error
+  showFieldError(field, message) {
+    field.classList.add('is-invalid');
+    field.classList.remove('is-valid');
+
+    let errorElement = field.parentElement.querySelector('.invalid-feedback');
+    if (!errorElement) {
+      errorElement = document.createElement('div');
+      errorElement.className = 'invalid-feedback';
+      field.parentElement.appendChild(errorElement);
+    }
+    errorElement.textContent = message;
+  }
+
+  // Clear field error
+  clearFieldError(field) {
+    field.classList.remove('is-invalid');
+    field.classList.add('is-valid');
+
+    const errorElement = field.parentElement.querySelector('.invalid-feedback');
+    if (errorElement) {
+      errorElement.remove();
+    }
+  }
+
+  // Clear all errors
+  clearAllErrors() {
+    this.errors = {};
+    this.form.querySelectorAll('.is-invalid').forEach((field) => {
+      this.clearFieldError(field);
+    });
+  }
+
+  // Check if form is valid
+  isValid() {
+    return Object.keys(this.errors).length === 0;
+  }
+
+  // Get all errors
+  getErrors() {
+    return this.errors;
+  }
+}
 </file>
 
 <file path="pages/shop.js">
@@ -811,85 +2261,6 @@ await loadPage();
 
 // Render footer
 document.querySelector('.js-footer-container').innerHTML = renderFooter();
-</file>
-
-<file path="services/cartService.js">
-// services/cartService.js
-import { state } from '../core/state.js';
-import { CONFIG } from '../core/constants.js';
-
-export class CartService {
-  static addToCart(productId, quantity = 1) {
-    const item = state.cart.find(
-      (p) => String(p.productId) === String(productId)
-    );
-
-    if (item) {
-      item.quantity += quantity;
-    } else {
-      state.cart.push({ productId: String(productId), quantity });
-    }
-
-    state.saveCart();
-    this.notifyCartChange();
-  }
-
-  static updateQuantity(productId, quantity) {
-    if (quantity < 1) {
-      return this.removeFromCart(productId);
-    }
-
-    const item = state.cart.find(
-      (p) => String(p.productId) === String(productId)
-    );
-    if (item) {
-      item.quantity = quantity;
-      state.saveCart();
-      this.notifyCartChange();
-    }
-  }
-
-  static removeFromCart(productId) {
-    state.cart = state.cart.filter(
-      (item) => String(item.productId) !== String(productId)
-    );
-    state.saveCart();
-    this.notifyCartChange();
-  }
-
-  static clearCart() {
-    state.cart = [];
-    localStorage.removeItem(CONFIG.STORAGE_KEY);
-    this.notifyCartChange();
-  }
-
-  static getTotal() {
-    return state.getCartTotal();
-  }
-
-  static notifyCartChange() {
-    window.dispatchEvent(
-      new CustomEvent('cartChanged', {
-        detail: { total: this.getTotal() },
-      })
-    );
-  }
-
-  static updateCartUI(icons, totalCountElements) {
-    const cartQty = this.getTotal();
-
-    if (cartQty !== 0) {
-      totalCountElements.forEach((count) => {
-        count.classList.remove('d-none');
-        count.textContent = cartQty;
-      });
-    } else {
-      totalCountElements.forEach((count) => {
-        count.classList.add('d-none');
-      });
-    }
-  }
-}
 </file>
 
 <file path="services/productService.js">
@@ -1068,6 +2439,263 @@ export function convertToTens(num) {
   if (rating <= 40) return '40';
   if (rating <= 45) return '45';
   return '50';
+}
+</file>
+
+<file path="pages/cart.js">
+// pages/cart.js
+import { CartService } from '../services/cartService.js';
+import { state } from '../core/state.js';
+import { renderFooter } from '../ui/footer.js';
+import { productService } from '../services/productService.js';
+import { formatCurrency } from '../utils/formatters.js';
+import { CONFIG } from '../core/constants.js';
+
+const cartContainer = document.querySelector('.js-cart-container');
+
+async function loadPage() {
+  // Wait for products to load
+  await productService.getProducts();
+
+  const carts = state.cart;
+
+  // Render footer
+  document.querySelector('.js-footer-container').innerHTML = renderFooter();
+
+  // Hide cart icons on cart page
+  const icons = document.querySelectorAll('.nav--cart-icon');
+  icons.forEach((i) => {
+    if (!i.classList.contains('d-none')) {
+      i.classList.add('d-none');
+    }
+  });
+
+  renderOrderSummary(carts);
+  renderPaymentSummary(carts);
+}
+
+function renderOrderSummary(carts) {
+  if (carts.length === 0) {
+    cartContainer.innerHTML = `
+      <div class="text-center py-5">
+        <i class="fa-solid fa-cart-shopping fs-1 mb-3"></i>
+        <h3>Your cart is empty</h3>
+        <p>Add some products to get started!</p>
+        <a href="./shop-page.html" class="btn bg-black text-white rounded-pill fw-bold mt-3">
+          Start Shopping
+        </a>
+      </div>
+    `;
+    return;
+  }
+
+  let cartSummaryHTML = '';
+
+  carts.forEach((cartItem) => {
+    const matchingProduct = productService.getProductById(cartItem.productId);
+
+    if (matchingProduct) {
+      const { image, price, title, id } = matchingProduct;
+
+      cartSummaryHTML += `<div class="cart-item-container">
+        <div class="cart-item--image">
+          <img
+            src="${image}"
+            alt="${title}"
+            loading="lazy"
+            class="rounded-2 img-fit"
+          />
+        </div>
+        <div class="cart-item--details">
+          <div class="c-row d-flex justify-content-between align-items-center">
+            <p class="fw-bolder">${title}</p>
+            <div class="delete-icon fs-6 text-danger js-delete-icon" data-product-id='${id}'>
+              <i class="fa-solid fa-trash-can"></i>
+            </div>
+          </div>
+          <div class="c-row d-flex justify-content-between align-items-center">
+            <p class="fw-bolder fs-5">${formatCurrency(price)}</p>
+            <div class="quantity-control d-flex bg-body-tertiary px-3 rounded-pill py-2">
+              <div class="decrease-btn me-2 icon-btn js-minus js-quantity-btn" data-product-id="${id}">
+                <i class="fa-solid fa-minus"></i>
+              </div>
+              <div class="quantity-value fw-bold">${cartItem.quantity}</div>
+              <div class="increase-btn ms-2 icon-btn js-plus js-quantity-btn" data-product-id="${id}">
+                <i class="fa-solid fa-plus"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+  });
+
+  cartContainer.innerHTML = cartSummaryHTML;
+}
+
+function renderPaymentSummary(carts) {
+  const { DELIVERY_FEE, DISCOUNT_RATE } = CONFIG;
+
+  let productTotal = carts.reduce((sum, cartItem) => {
+    const product = productService.getProductById(cartItem.productId);
+    return sum + (product?.price || 0) * cartItem.quantity;
+  }, 0);
+
+  const discountAmount = (productTotal * DISCOUNT_RATE).toFixed(2);
+  const deliveryFee = productTotal <= 0 ? 0 : DELIVERY_FEE;
+  const grandTotal = (productTotal - discountAmount + deliveryFee).toFixed(2);
+
+  const summaryHTML =
+    carts.length === 0
+      ? ''
+      : `
+    <div class="c-row d-flex justify-content-between mb-3">
+      <p>Subtotal (${CartService.getTotal()} items)</p>
+      <p class="fw-bold">${formatCurrency(productTotal)}</p>
+    </div>
+    <div class="c-row d-flex justify-content-between mb-3">
+      <p>Discount (-${DISCOUNT_RATE * 100}%)</p>
+      <p class="fw-bold text-danger">-${formatCurrency(discountAmount)}</p>
+    </div>
+    <div class="c-row d-flex justify-content-between mb-3">
+      <p>Delivery Fee</p>
+      <p class="fw-bold">${formatCurrency(deliveryFee)}</p>
+    </div>
+    <hr />
+    <div class="c-row d-flex justify-content-between mb-3">
+      <p>Total</p>
+      <p class="fw-bolder fs-5">${formatCurrency(grandTotal)}</p>
+    </div>
+    <div class="row">
+      <div class="col-12 mt-1 d-grid">
+        <a
+          href="./check-out-page.html"
+          class="btn bg-black text-white rounded-pill fw-bold"
+        >
+          Go to Checkout
+          <i class="fa-solid fa-arrow-right ms-1"></i>
+        </a>
+      </div>
+    </div>`;
+
+  document.querySelector('.js-cart-summary').innerHTML = summaryHTML;
+}
+
+// Event delegation for cart interactions
+document.addEventListener('click', (e) => {
+  // Quantity buttons
+  if (e.target.closest('.js-quantity-btn')) {
+    const btn = e.target.closest('.js-quantity-btn');
+    const { productId } = btn.dataset;
+    const cartItem = state.cart.find(
+      (item) => String(item.productId) === String(productId)
+    );
+
+    if (cartItem) {
+      if (btn.classList.contains('js-plus')) {
+        // Increase quantity
+        CartService.updateQuantity(productId, cartItem.quantity + 1);
+      } else if (btn.classList.contains('js-minus')) {
+        // Decrease quantity but don't go below 1
+        if (cartItem.quantity > 1) {
+          CartService.updateQuantity(productId, cartItem.quantity - 1);
+        }
+      }
+      loadPage();
+    }
+  }
+
+  // Delete buttons
+  if (e.target.closest('.js-delete-icon')) {
+    const icon = e.target.closest('.js-delete-icon');
+    const { productId } = icon.dataset;
+    CartService.removeFromCart(productId);
+    loadPage();
+  }
+});
+
+// Listen for cart changes
+window.addEventListener('cartChanged', () => {
+  loadPage();
+});
+
+// Initialize page
+await loadPage();
+</file>
+
+<file path="services/cartService.js">
+// services/cartService.js
+import { state } from '../core/state.js';
+import { CONFIG } from '../core/constants.js';
+
+export class CartService {
+  static addToCart(productId, quantity = 1) {
+    const item = state.cart.find(
+      (p) => String(p.productId) === String(productId)
+    );
+
+    if (item) {
+      item.quantity += quantity;
+    } else {
+      state.cart.push({ productId: String(productId), quantity });
+    }
+
+    state.saveCart();
+    this.notifyCartChange();
+  }
+
+  static updateQuantity(productId, quantity) {
+    const item = state.cart.find(
+      (p) => String(p.productId) === String(productId)
+    );
+    if (item) {
+      // Don't allow quantity to go below 1
+      item.quantity = Math.max(1, quantity);
+      state.saveCart();
+      this.notifyCartChange();
+    }
+  }
+
+  static removeFromCart(productId) {
+    state.cart = state.cart.filter(
+      (item) => String(item.productId) !== String(productId)
+    );
+    state.saveCart();
+    this.notifyCartChange();
+  }
+
+  static clearCart() {
+    state.cart = [];
+    localStorage.removeItem(CONFIG.STORAGE_KEY);
+    this.notifyCartChange();
+  }
+
+  static getTotal() {
+    return state.getCartTotal();
+  }
+
+  static notifyCartChange() {
+    window.dispatchEvent(
+      new CustomEvent('cartChanged', {
+        detail: { total: this.getTotal() },
+      })
+    );
+  }
+
+  static updateCartUI(icons, totalCountElements) {
+    const cartQty = this.getTotal();
+
+    if (cartQty !== 0) {
+      totalCountElements.forEach((count) => {
+        count.classList.remove('d-none');
+        count.textContent = cartQty;
+      });
+    } else {
+      totalCountElements.forEach((count) => {
+        count.classList.add('d-none');
+      });
+    }
+  }
 }
 </file>
 
@@ -1288,6 +2916,146 @@ footer h5 {
   border-color: #dc3545;
   box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
 }
+</file>
+
+<file path="add-to-cart-page.html">
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- fontawesome CDN -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+      integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <!-- bootstrap CDN -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <!-- CUSTOM -->
+    <link rel="stylesheet" href="./styles/main.css" />
+    <link rel="stylesheet" href="./styles/pages/cart-page.css" />
+    <title>Cart</title>
+  </head>
+  <body>
+    <!-- header -->
+    <nav class="navbar navbar-expand-lg bg-white py-3 fixed-top c-shadow">
+      <div class="container-lg">
+        <button
+          class="navbar-toggler me-2 nav--button"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <a
+          class="navbar-brand nav--brand-name me-auto ms-sm-3 ms-lg-0 me-lg-5 display-5 d-flex"
+          href="./index.html"
+          >ShopNow.co</a
+        >
+        <div class="nav--cart-icon ms-sm-4 d-lg-none">
+          <img
+            width="30"
+            loading="lazy"
+            height="30"
+            src="https://img.icons8.com/pulsar-line/48/shopping-cart.png"
+            alt="shopping-cart"
+          />
+          <span class="nav--cart-counter centered d-none"></span>
+        </div>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav mx-auto mb-2 mb-lg-0 mt-sm-3 mt-lg-0">
+            <li class="nav-item">
+              <a class="nav-link" aria-current="page" href="./index.html"
+                >Home</a
+              >
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="./shop-page.html">Shop</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">About</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">Contact</a>
+            </li>
+          </ul>
+          <form class="d-flex" role="search">
+            <input
+              class="form-control me-2"
+              type="search"
+              placeholder="Search"
+              aria-label="Search"
+            />
+            <button class="btn btn-outline-dark fw-bold" type="submit">
+              Search
+            </button>
+          </form>
+        </div>
+        <div class="nav--cart-icon ms-sm-4 d-none d-lg-flex">
+          <img
+            width="30"
+            height="30"
+            loading="lazy"
+            src="https://img.icons8.com/pulsar-line/48/shopping-cart.png"
+            alt="shopping-cart"
+          />
+          <span class="nav--cart-counter centered d-none"></span>
+        </div>
+      </div>
+    </nav>
+    <!-- section -->
+    <section class="section-padding">
+      <div class="container-lg">
+        <div class="row mb-3">
+          <div class="col-12">
+            <h1 class="display-3 fw-bolder fs-1 footer--brand-name">
+              Your Cart
+            </h1>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-12 col-lg-7 order-1 order-lg-0">
+            <div
+              class="cart-container rounded-4 border p-3 pt-2 js-cart-container"
+            ></div>
+          </div>
+          <div class="col-12 col-lg-5 order-0">
+            <div class="rounded-4 border px-3 pt-1 pb-3">
+              <p class="fw-bold fs-4">Order Summary</p>
+              <div class="cart-summary js-cart-summary"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- footer -->
+    <footer class="bg-body-tertiary py-5 mt-5">
+      <div class="container js-footer-container"></div>
+    </footer>
+
+    <!-- scripts -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="./pages/cart.js"></script>
+  </body>
+</html>
 </file>
 
 <file path="check-out-page.html">
@@ -1614,147 +3382,15 @@ footer h5 {
       integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
       crossorigin="anonymous"
     ></script>
+    <script type="module">
+      import { AuthGuard } from './utils/auth-guard.js';
+
+      // Require authentication for checkout
+      if (!AuthGuard.requireAuth()) {
+        // User will be redirected to login
+      }
+    </script>
     <script type="module" src="./pages/check.js"></script>
-  </body>
-</html>
-</file>
-
-<file path="add-to-cart-page.html">
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- fontawesome CDN -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
-      integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    />
-    <!-- bootstrap CDN -->
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-      crossorigin="anonymous"
-    />
-    <!-- CUSTOM -->
-    <link rel="stylesheet" href="./styles/main.css" />
-    <link rel="stylesheet" href="./styles/pages/cart-page.css" />
-    <title>Cart</title>
-  </head>
-  <body>
-    <!-- header -->
-    <nav class="navbar navbar-expand-lg bg-white py-3 fixed-top c-shadow">
-      <div class="container-lg">
-        <button
-          class="navbar-toggler me-2 nav--button"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarSupportedContent"
-          aria-controls="navbarSupportedContent"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <a
-          class="navbar-brand nav--brand-name me-auto ms-sm-3 ms-lg-0 me-lg-5 display-5 d-flex"
-          href="./index.html"
-          >ShopNow.co</a
-        >
-        <div class="nav--cart-icon ms-sm-4 d-lg-none">
-          <img
-            width="30"
-            loading="lazy"
-            height="30"
-            src="https://img.icons8.com/pulsar-line/48/shopping-cart.png"
-            alt="shopping-cart"
-          />
-          <span class="nav--cart-counter centered d-none"></span>
-        </div>
-
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav mx-auto mb-2 mb-lg-0 mt-sm-3 mt-lg-0">
-            <li class="nav-item">
-              <a class="nav-link" aria-current="page" href="./index.html"
-                >Home</a
-              >
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="./shop-page.html">Shop</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="#">About</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="#">Contact</a>
-            </li>
-          </ul>
-          <form class="d-flex" role="search">
-            <input
-              class="form-control me-2"
-              type="search"
-              placeholder="Search"
-              aria-label="Search"
-            />
-            <button class="btn btn-outline-dark fw-bold" type="submit">
-              Search
-            </button>
-          </form>
-        </div>
-        <div class="nav--cart-icon ms-sm-4 d-none d-lg-flex">
-          <img
-            width="30"
-            height="30"
-            loading="lazy"
-            src="https://img.icons8.com/pulsar-line/48/shopping-cart.png"
-            alt="shopping-cart"
-          />
-          <span class="nav--cart-counter centered d-none"></span>
-        </div>
-      </div>
-    </nav>
-    <!-- section -->
-    <section class="section-padding">
-      <div class="container-lg">
-        <div class="row mb-3">
-          <div class="col-12">
-            <h1 class="display-3 fw-bolder fs-1 footer--brand-name">
-              Your Cart
-            </h1>
-          </div>
-        </div>
-        <div class="row g-3">
-          <div class="col-12 col-lg-7 order-1 order-lg-0">
-            <div
-              class="cart-container rounded-4 border p-3 pt-2 js-cart-container"
-            ></div>
-          </div>
-          <div class="col-12 col-lg-5 order-0">
-            <div class="rounded-4 border px-3 pt-1 pb-3">
-              <p class="fw-bold fs-4">Order Summary</p>
-              <div class="cart-summary js-cart-summary"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- footer -->
-    <footer class="bg-body-tertiary py-5 mt-5">
-      <div class="container js-footer-container"></div>
-    </footer>
-
-    <!-- scripts -->
-    <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-      crossorigin="anonymous"
-    ></script>
-    <script type="module" src="./pages/cart.js"></script>
   </body>
 </html>
 </file>
@@ -1855,7 +3491,8 @@ footer h5 {
           class="nav--cart-icon ms-sm-4 d-none d-lg-flex"
         >
           <img
-            width="30"\
+            width="30"
+            \
             loading="lazy"
             height="30"
             src="https://img.icons8.com/pulsar-line/48/shopping-cart.png"
