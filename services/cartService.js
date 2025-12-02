@@ -19,15 +19,12 @@ export class CartService {
   }
 
   static updateQuantity(productId, quantity) {
-    if (quantity < 1) {
-      return this.removeFromCart(productId);
-    }
-
     const item = state.cart.find(
       (p) => String(p.productId) === String(productId)
     );
     if (item) {
-      item.quantity = quantity;
+      // Don't allow quantity to go below 1
+      item.quantity = Math.max(1, quantity);
       state.saveCart();
       this.notifyCartChange();
     }

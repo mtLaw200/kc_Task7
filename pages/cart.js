@@ -147,10 +147,15 @@ document.addEventListener('click', (e) => {
     );
 
     if (cartItem) {
-      const newQty = btn.classList.contains('js-plus')
-        ? cartItem.quantity + 1
-        : cartItem.quantity - 1;
-      CartService.updateQuantity(productId, newQty);
+      if (btn.classList.contains('js-plus')) {
+        // Increase quantity
+        CartService.updateQuantity(productId, cartItem.quantity + 1);
+      } else if (btn.classList.contains('js-minus')) {
+        // Decrease quantity but don't go below 1
+        if (cartItem.quantity > 1) {
+          CartService.updateQuantity(productId, cartItem.quantity - 1);
+        }
+      }
       loadPage();
     }
   }
