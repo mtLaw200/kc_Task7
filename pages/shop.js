@@ -1,8 +1,8 @@
-// main.js
-import { productService } from './services/productService.js';
-import { CartService } from './services/cartService.js';
-import { ProductCard } from './ui/productCard.js';
-import { renderFooter } from './ui/footer.js';
+// pages/shop.js
+import { productService } from '../services/productService.js';
+import { CartService } from '../services/cartService.js';
+import { renderFooter } from '../ui/footer.js';
+import { ProductCard } from '../ui/productCard.js';
 
 async function loadPage() {
   const totalCart = document.querySelectorAll('.nav--cart-counter');
@@ -12,16 +12,13 @@ async function loadPage() {
 
   try {
     const products = await productService.getProducts();
-    const firstFourProducts = products.slice(0, 4);
-
-    // Display first 4 products
     document.querySelector('.js-product-container').innerHTML =
-      ProductCard.renderList(firstFourProducts);
+      ProductCard.renderList(products);
 
     // Add to cart functionality using event delegation
     document.addEventListener('click', handleAddToCart);
   } catch (error) {
-    console.error('Failed to load page:', error);
+    console.error('Failed to load products:', error);
     document.querySelector('.js-product-container').innerHTML = `
       <div class="col-12 text-center">
         <p class="text-danger">Failed to load products. Please refresh the page.</p>
